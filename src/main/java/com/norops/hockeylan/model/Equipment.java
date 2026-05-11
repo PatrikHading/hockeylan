@@ -34,7 +34,10 @@ public class Equipment {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdDate;
 
-    public Equipment(EquipmentType type, String serialNumber, String description) {
+    public Equipment(EquipmentType type,
+                     String serialNumber,
+                     String description
+    ) {
         this.type = type;
         this.serialNumber = serialNumber;
         this.description = description;
