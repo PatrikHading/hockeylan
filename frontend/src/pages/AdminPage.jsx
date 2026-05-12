@@ -1,11 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/api";
+import Alert from "../components/ui/Alert";
+import Badge from "../components/ui/Badge";
+import Button from "../components/ui/Button";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
 
 function AdminPage() {
     const [equipment, setEquipment] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [returning, setReturning] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
+    const [successMessage, setSuccessMessage] = useState("");
+    const [searchTerm, setSearchTerm] = useState("");
+    const [selectedEquipment, setSelectedEquipment] = useState(null);
 
     async function fetchEquipment() {
         try {
@@ -20,121 +28,291 @@ function AdminPage() {
         }
     }
 
-    async function handleReturned(id) {
-        console.log("HANDLE RETURNED", id);
-
-        try {
-            await api.put(`/admin/equipment/${id}/returned`);
-            await fetchEquipment();
-        } catch (error) {
-            console.error("Fel vid återlämning:", error);
-
-            setErrorMessage(
-                error.response?.data?.message || "Kunde inte markera som återlämnad."
-            );
-        }
-    }
-
     useEffect(() => {
         fetchEquipment();
     }, []);
 
+    const filteredEquipment = useMemo(() => {
+        const query = searchTerm.toLowerCase().trim();
+
+        if (!query) {
+            return equipment;
+        }
+
+        return equipment.filter((item) => {
+            return (
+                item.type?.toLowerCase().includes(query) ||
+                item.serialNumber?.toLowerCase().includes(query) ||
+                item.description?.toLowerCase().includes(query)
+            );
+        });
+    }, [equipment, searchTerm]);
+
+    const totalCount = equipment.length;
+    const availableCount = equipment.filter((item) => item.available).length;
+    const loanedCount = totalCount - availableCount;
+
+    async function handleReturned() {
+        if (!selectedEquipment) {
+            return;
+        }
+
+        try {
+            setReturning(true);
+            setErrorMessage("");
+            setSuccessMessage("");
+
+            await api.put(`/admin/equipment/${selectedEquipment.id}/returned`);
+            await fetchEquipment();
+
+            setSuccessMessage(
+                `${selectedEquipment.serialNumber} är markerad som återlämnad.`
+            );
+
+            setSelectedEquipment(null);
+        } catch (error) {
+            setErrorMessage(
+                error.response?.data?.message || "Kunde inte markera som återlämnad."
+            );
+        } finally {
+            setReturning(false);
+        }
+    }
+
     return (
-        <main className="min-h-screen bg-slate-100 p-6">
-            <div className="mx-auto max-w-6xl rounded-xl bg-white p-6 shadow">
-                <div className="mb-6 flex items-center justify-between gap-4">
+        <div className="space-y-6">
+            <section className="rounded-3xl bg-white p-6 shadow-sm">
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Admin</h1>
-                        <p className="mt-1 text-slate-600">
-                            Hantera hockeyutrustning och utlåningar.
+                        <Badge variant="hockey">Adminpanel</Badge>
+
+                        <h1 className="mt-3">
+                            Utrustning & utlåningar
+                        </h1>
+
+                        <p className="mt-2 max-w-2xl">
+                            Hantera klubbens hockeyutrustning, skapa QR-koder och markera
+                            utrustning som återlämnad.
                         </p>
                     </div>
 
-                    <Link
-                        to="/admin/add"
-                        className="rounded-lg bg-slate-900 px-4 py-2 text-white hover:bg-slate-700"
-                    >
-                        Lägg till utrustning
+                    <Link to="/admin/add">
+                        <Button size="lg" fullWidth>
+                            Lägg till utrustning
+                        </Button>
                     </Link>
                 </div>
+            </section>
 
-                {errorMessage && (
-                    <div className="mb-4 rounded-lg bg-red-100 p-3 text-red-700">
-                        {errorMessage}
+            <section
+                className="grid gap-4 sm:grid-cols-3"
+                aria-label="Statistik för utrustning"
+            >
+                <div className="rounded-2xl bg-blue-950 p-5 text-white shadow-sm">
+                    <p className="text-sm font-semibold text-blue-100">
+                        Totalt
+                    </p>
+                    <p className="mt-2 text-3xl font-black">
+                        {totalCount}
+                    </p>
+                </div>
+
+                <div className="rounded-2xl bg-white p-5 shadow-sm">
+                    <p className="text-sm font-semibold text-slate-500">
+                        Tillgängliga
+                    </p>
+                    <p className="mt-2 text-3xl font-black text-green-700">
+                        {availableCount}
+                    </p>
+                </div>
+
+                <div className="rounded-2xl bg-white p-5 shadow-sm">
+                    <p className="text-sm font-semibold text-slate-500">
+                        Utlånade
+                    </p>
+                    <p className="mt-2 text-3xl font-black text-amber-700">
+                        {loanedCount}
+                    </p>
+                </div>
+            </section>
+
+            {errorMessage && (
+                <Alert title="Något gick fel" variant="danger">
+                    {errorMessage}
+                </Alert>
+            )}
+
+            {successMessage && (
+                <Alert title="Klart" variant="success">
+                    {successMessage}
+                </Alert>
+            )}
+
+            <section className="rounded-3xl bg-white p-6 shadow-sm">
+                <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <h2>Utrustningslista</h2>
+                        <p className="mt-1 text-sm text-slate-600">
+                            Sök på typ, serienummer eller beskrivning.
+                        </p>
                     </div>
-                )}
+
+                    <div className="w-full md:max-w-sm">
+                        <label htmlFor="equipment-search" className="sr-only">
+                            Sök utrustning
+                        </label>
+
+                        <input
+                            id="equipment-search"
+                            type="search"
+                            value={searchTerm}
+                            onChange={(event) => setSearchTerm(event.target.value)}
+                            placeholder="Sök utrustning..."
+                            aria-label="Sök utrustning"
+                        />
+                    </div>
+                </div>
 
                 {loading ? (
-                    <p className="text-slate-600">Laddar...</p>
-                ) : equipment.length === 0 ? (
-                    <p className="text-slate-600">Ingen utrustning finns ännu.</p>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full border-collapse text-left">
-                            <thead>
-                            <tr className="border-b bg-slate-50">
-                                <th className="p-3">Typ</th>
-                                <th className="p-3">Serienummer</th>
-                                <th className="p-3">Beskrivning</th>
-                                <th className="p-3">Status</th>
-                                <th className="p-3">Åtgärder</th>
-                            </tr>
-                            </thead>
-
-                            <tbody>
-                            {equipment.map((item) => (
-                                <tr key={item.id} className="border-b">
-                                    <td className="p-3">{item.type}</td>
-                                    <td className="p-3 font-medium">{item.serialNumber}</td>
-                                    <td className="p-3">{item.description || "-"}</td>
-
-                                    <td className="p-3">
-                                        {item.available ? (
-                                            <span className="rounded-full bg-green-100 px-3 py-1 text-sm text-green-700">
-                          Tillgänglig
-                        </span>
-                                        ) : (
-                                            <span className="rounded-full bg-yellow-100 px-3 py-1 text-sm text-yellow-700">
-                          Utlånad
-                        </span>
-                                        )}
-                                    </td>
-
-                                    <td className="p-3">
-                                        <div className="flex flex-wrap gap-2">
-                                            <Link
-                                                to={`/admin/qr/${item.id}`}
-                                                className="rounded-lg bg-slate-200 px-3 py-2 text-sm hover:bg-slate-300"
-                                            >
-                                                QR
-                                            </Link>
-
-                                            {!item.available && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleReturned(item.id)}
-                                                    className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-white hover:bg-slate-700"
-                                                >
-                                                    Återlämnad
-                                                </button>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                            </tbody>
-                        </table>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
+                        <p className="font-medium text-slate-700">
+                            Laddar utrustning...
+                        </p>
                     </div>
-                )}
+                ) : filteredEquipment.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
+                        <h3>Ingen utrustning hittades</h3>
+                        <p className="mt-2 text-sm text-slate-600">
+                            Prova en annan sökning eller lägg till ny utrustning.
+                        </p>
+                    </div>
+                ) : (
+                    <>
+                        <div className="hidden overflow-x-auto rounded-2xl border border-slate-200 md:block">
+                            <table>
+                                <thead>
+                                <tr>
+                                    <th>Typ</th>
+                                    <th>Serienummer</th>
+                                    <th>Beskrivning</th>
+                                    <th>Status</th>
+                                    <th>Åtgärder</th>
+                                </tr>
+                                </thead>
 
-                <Link
-                    to="/"
-                    className="mt-6 inline-block text-sm text-slate-600 hover:text-slate-900"
-                >
-                    Till startsidan
-                </Link>
-            </div>
-        </main>
+                                <tbody>
+                                {filteredEquipment.map((item) => (
+                                    <tr key={item.id}>
+                                        <td className="font-semibold text-slate-900">
+                                            {item.type}
+                                        </td>
+
+                                        <td className="font-mono text-sm font-semibold text-slate-700">
+                                            {item.serialNumber}
+                                        </td>
+
+                                        <td className="text-slate-600">
+                                            {item.description || "-"}
+                                        </td>
+
+                                        <td>
+                                            {item.available ? (
+                                                <Badge variant="success">Tillgänglig</Badge>
+                                            ) : (
+                                                <Badge variant="warning">Utlånad</Badge>
+                                            )}
+                                        </td>
+
+                                        <td>
+                                            <div className="flex flex-wrap gap-2">
+                                                <Link to={`/admin/qr/${item.id}`}>
+                                                    <Button variant="outline" size="sm">
+                                                        QR
+                                                    </Button>
+                                                </Link>
+
+                                                {!item.available && (
+                                                    <Button
+                                                        variant="secondary"
+                                                        size="sm"
+                                                        onClick={() => setSelectedEquipment(item)}
+                                                    >
+                                                        Återlämnad
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div className="grid gap-4 md:hidden">
+                            {filteredEquipment.map((item) => (
+                                <article
+                                    key={item.id}
+                                    className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <h3>{item.type}</h3>
+                                            <p className="mt-1 font-mono text-sm text-slate-600">
+                                                {item.serialNumber}
+                                            </p>
+                                        </div>
+
+                                        {item.available ? (
+                                            <Badge variant="success">Tillgänglig</Badge>
+                                        ) : (
+                                            <Badge variant="warning">Utlånad</Badge>
+                                        )}
+                                    </div>
+
+                                    <p className="mt-3 text-sm text-slate-600">
+                                        {item.description || "Ingen beskrivning angiven."}
+                                    </p>
+
+                                    <div className="mt-4 flex flex-col gap-2">
+                                        <Link to={`/admin/qr/${item.id}`}>
+                                            <Button variant="outline" fullWidth>
+                                                Visa QR-kod
+                                            </Button>
+                                        </Link>
+
+                                        {!item.available && (
+                                            <Button
+                                                variant="secondary"
+                                                fullWidth
+                                                onClick={() => setSelectedEquipment(item)}
+                                            >
+                                                Markera som återlämnad
+                                            </Button>
+                                        )}
+                                    </div>
+                                </article>
+                            ))}
+                        </div>
+                    </>
+                )}
+            </section>
+
+            <ConfirmDialog
+                open={Boolean(selectedEquipment)}
+                title="Markera som återlämnad?"
+                message={
+                    selectedEquipment
+                        ? `Vill du markera ${selectedEquipment.serialNumber} som återlämnad?`
+                        : ""
+                }
+                confirmText="Ja, markera återlämnad"
+                cancelText="Avbryt"
+                loading={returning}
+                variant="secondary"
+                onConfirm={handleReturned}
+                onCancel={() => setSelectedEquipment(null)}
+            />
+        </div>
     );
 }
 

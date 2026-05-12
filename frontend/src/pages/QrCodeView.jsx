@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import api from "../api/api";
+import Alert from "../components/ui/Alert";
+import Badge from "../components/ui/Badge";
+import Button from "../components/ui/Button";
 
 function QrCodeView() {
     const { id } = useParams();
@@ -25,44 +28,92 @@ function QrCodeView() {
     }, [id]);
 
     return (
-        <main className="min-h-screen bg-slate-100 p-6">
-            <div className="mx-auto max-w-3xl rounded-xl bg-white p-6 text-center shadow">
-                <h1 className="text-2xl font-bold text-slate-900">QR-kod</h1>
+        <div className="space-y-6">
+            <section className="rounded-3xl bg-white p-6 shadow-sm">
+                <Badge variant="hockey">QR-kod</Badge>
 
-                {loading && <p className="mt-4 text-slate-600">Laddar...</p>}
+                <h1 className="mt-3">QR-kod</h1>
 
-                {errorMessage && (
-                    <div className="mt-4 rounded-lg bg-red-100 p-3 text-red-700">
-                        {errorMessage}
+                <p className="mt-2 max-w-2xl">
+                    Skriv ut eller spara QR-koden och fäst den på utrustningen.
+                    När koden skannas öppnas låneformuläret.
+                </p>
+            </section>
+
+            {loading && (
+                <section className="rounded-3xl bg-white p-6 shadow-sm">
+                    <p className="font-medium text-slate-700">Laddar QR-kod...</p>
+                </section>
+            )}
+
+            {errorMessage && (
+                <Alert title="Något gick fel" variant="danger">
+                    {errorMessage}
+                </Alert>
+            )}
+
+            {qrData && (
+                <section className="grid gap-6 lg:grid-cols-[1fr_360px]">
+                    <div className="rounded-3xl bg-white p-6 shadow-sm">
+                        <h2>Utrustning</h2>
+
+                        <dl className="mt-5 grid gap-4">
+                            <div className="rounded-2xl bg-slate-50 p-4">
+                                <dt className="text-sm font-bold text-slate-500">
+                                    Serienummer
+                                </dt>
+
+                                <dd className="mt-1 font-mono font-semibold text-slate-900">
+                                    {qrData.serialNumber}
+                                </dd>
+                            </div>
+
+                            <div className="rounded-2xl bg-slate-50 p-4">
+                                <dt className="text-sm font-bold text-slate-500">
+                                    Lånelänk
+                                </dt>
+
+                                <dd className="mt-1 break-all font-mono text-sm font-semibold text-slate-900">
+                                    {qrData.loanUrl}
+                                </dd>
+                            </div>
+                        </dl>
+
+                        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                            <Link to="/admin">
+                                <Button variant="outline" fullWidth className="sm:w-auto">
+                                    Tillbaka
+                                </Button>
+                            </Link>
+
+                            <Button
+                                fullWidth
+                                className="sm:w-auto"
+                                onClick={() => window.print()}
+                            >
+                                Skriv ut
+                            </Button>
+                        </div>
                     </div>
-                )}
 
-                {qrData && (
-                    <div className="mt-6">
-                        <p className="mb-2 text-slate-700">
-                            Serienummer: <strong>{qrData.serialNumber}</strong>
+                    <aside className="rounded-3xl bg-blue-950 p-6 text-center text-white shadow-sm">
+                        <h2 className="text-white">Skanna här</h2>
+
+                        <div className="mt-5 rounded-3xl bg-white p-5">
+                            <img
+                                src={`data:image/png;base64,${qrData.qrCodeBase64}`}
+                                alt={`QR-kod för ${qrData.serialNumber}`}
+                                className="mx-auto h-72 w-72"
+                            />
+                        </div>
+
+                        <p className="mt-4 text-sm text-blue-100">
+                            QR-koden leder till låneformuläret för denna utrustning.
                         </p>
-
-                        <img
-                            src={`data:image/png;base64,${qrData.qrCodeBase64}`}
-                            alt={`QR-kod för ${qrData.serialNumber}`}
-                            className="mx-auto h-72 w-72"
-                        />
-
-                        <p className="mt-4 break-all text-sm text-slate-600">
-                            {qrData.loanUrl}
-                        </p>
-                    </div>
-                )}
-
-                <Link
-                    to="/admin"
-                    className="mt-6 inline-block rounded-lg bg-slate-900 px-4 py-2 text-white hover:bg-slate-700"
-                >
-                    Tillbaka
-                </Link>
-            </div>
-        </main>
+                    </aside>
+                </section>
+            )}
+        </div>
     );
 }
 

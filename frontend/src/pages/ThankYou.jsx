@@ -1,28 +1,43 @@
 import { Link } from "react-router-dom";
+import Alert from "../components/ui/Alert";
+import Badge from "../components/ui/Badge";
+import Button from "../components/ui/Button";
 
 function ThankYou() {
     return (
-        <main className="min-h-screen bg-slate-100 p-6">
-            <div className="mx-auto max-w-3xl rounded-xl bg-white p-6 text-center shadow">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-3xl">
+        <div className="mx-auto max-w-2xl space-y-6">
+            <section className="rounded-3xl bg-white p-6 text-center shadow-sm sm:p-8">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-3xl text-green-700">
                     ✓
                 </div>
 
-                <h1 className="text-2xl font-bold text-slate-900">Tack!</h1>
+                <Badge variant="success" className="mt-5">
+                    Lån registrerat
+                </Badge>
 
-                <p className="mt-3 text-slate-600">
-                    Lånet har registrerats. Kom ihåg att lämna tillbaka utrustningen enligt
-                    lagets instruktioner.
+                <h1 className="mt-4">
+                    Tack!
+                </h1>
+
+                <p className="mt-3">
+                    Ditt lån av hockeyutrustning har registrerats.
+                    Kom ihåg att lämna tillbaka utrustningen enligt klubbens rutiner.
                 </p>
 
-                <Link
-                    to="/"
-                    className="mt-6 inline-block rounded-lg bg-slate-900 px-4 py-2 text-white hover:bg-slate-700"
-                >
-                    Till startsidan
-                </Link>
-            </div>
-        </main>
+                <div className="mt-6">
+                    <Link to="/">
+                        <Button fullWidth size="lg">
+                            Till startsidan
+                        </Button>
+                    </Link>
+                </div>
+            </section>
+
+            <Alert title="Information" variant="info">
+                Kontakta en ledare i BK Flagg Hockey om något blivit fel eller om du
+                behöver hjälp med återlämning.
+            </Alert>
+        </div>
     );
 }
 
