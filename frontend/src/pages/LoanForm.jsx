@@ -28,6 +28,7 @@ function LoanForm() {
             try {
                 const response = await api.get(`/loan/${serialNumber}`);
                 setEquipment(response.data);
+                setErrorMessage("");
             } catch (error) {
                 setErrorMessage("Kunde inte hitta utrustningen.");
             } finally {
@@ -101,26 +102,34 @@ function LoanForm() {
 
     if (loading) {
         return (
-            <div className="rounded-3xl bg-white p-6 shadow-sm">
-                <p className="font-medium text-slate-700">
-                    Laddar utrustning...
-                </p>
+            <div className="mx-auto max-w-3xl space-y-6">
+                <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
+                    <div className="h-6 w-32 animate-pulse rounded-full bg-slate-100" />
+                    <div className="mt-4 h-10 w-3/4 animate-pulse rounded-xl bg-slate-100" />
+                    <div className="mt-3 h-5 w-full animate-pulse rounded-xl bg-slate-100" />
+                </section>
+
+                <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
+                    <div className="grid gap-4">
+                        <div className="h-14 animate-pulse rounded-xl bg-slate-100" />
+                        <div className="h-14 animate-pulse rounded-xl bg-slate-100" />
+                        <div className="h-14 animate-pulse rounded-xl bg-slate-100" />
+                    </div>
+                </section>
             </div>
         );
     }
 
     if (errorMessage && !equipment) {
         return (
-            <div className="space-y-6">
-                <section className="rounded-3xl bg-white p-6 shadow-sm">
+            <div className="mx-auto max-w-3xl space-y-6">
+                <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
                     <Badge variant="danger">Utrustning saknas</Badge>
 
-                    <h1 className="mt-3">
-                        Utrustning hittades inte
-                    </h1>
+                    <h1 className="mt-3">Utrustning hittades inte</h1>
 
                     <p className="mt-2">
-                        Kontrollera att QR-koden är korrekt eller kontakta en ledare.
+                        Kontrollera att QR-koden är korrekt eller kontakta ansvarig.
                     </p>
                 </section>
 
@@ -133,27 +142,23 @@ function LoanForm() {
 
     if (!equipment.available) {
         return (
-            <div className="space-y-6">
-                <section className="rounded-3xl bg-white p-6 shadow-sm">
+            <div className="mx-auto max-w-3xl space-y-6">
+                <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
                     <Badge variant="warning">Ej tillgänglig</Badge>
 
-                    <h1 className="mt-3">
-                        Utrustningen är redan utlånad
-                    </h1>
+                    <h1 className="mt-3">Utrustningen är redan utlånad</h1>
 
                     <p className="mt-2">
                         Denna utrustning är inte tillgänglig just nu.
                     </p>
                 </section>
 
-                <section className="rounded-3xl bg-white p-6 shadow-sm">
+                <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
                     <h2>Utrustning</h2>
 
-                    <dl className="mt-4 grid gap-4 sm:grid-cols-3">
+                    <dl className="mt-5 grid gap-4 sm:grid-cols-3">
                         <div className="rounded-2xl bg-slate-50 p-4">
-                            <dt className="text-sm font-bold text-slate-500">
-                                Typ
-                            </dt>
+                            <dt className="text-sm font-bold text-slate-500">Typ</dt>
                             <dd className="mt-1 font-semibold text-slate-900">
                                 {equipment.type}
                             </dd>
@@ -183,46 +188,42 @@ function LoanForm() {
     }
 
     return (
-        <div className="space-y-6">
-            <section className="rounded-3xl bg-white p-6 shadow-sm">
-                <Badge variant="hockey">Utlåning</Badge>
+        <div className="mx-auto max-w-3xl space-y-6">
+            <section className="rounded-3xl bg-blue-950 p-5 text-white shadow-sm sm:p-6">
+                <Badge variant="danger">Utlåning</Badge>
 
-                <h1 className="mt-3">
-                    Låna hockeyutrustning
-                </h1>
+                <h1 className="mt-3 text-white">Låna utrustning</h1>
 
-                <p className="mt-2 max-w-2xl">
+                <p className="mt-2 max-w-2xl text-blue-100">
                     Fyll i dina uppgifter för att registrera lånet.
                 </p>
             </section>
 
-            <section className="rounded-3xl bg-blue-950 p-6 text-white shadow-sm">
-                <h2 className="text-white">Vald utrustning</h2>
+            <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
+                <h2>Vald utrustning</h2>
 
-                <dl className="mt-4 grid gap-4 sm:grid-cols-3">
-                    <div className="rounded-2xl bg-white/10 p-4">
-                        <dt className="text-sm font-bold text-blue-100">
-                            Typ
-                        </dt>
-                        <dd className="mt-1 font-semibold">
+                <dl className="mt-5 grid gap-4 sm:grid-cols-3">
+                    <div className="rounded-2xl bg-slate-50 p-4">
+                        <dt className="text-sm font-bold text-slate-500">Typ</dt>
+                        <dd className="mt-1 font-semibold text-slate-900">
                             {equipment.type}
                         </dd>
                     </div>
 
-                    <div className="rounded-2xl bg-white/10 p-4">
-                        <dt className="text-sm font-bold text-blue-100">
+                    <div className="rounded-2xl bg-slate-50 p-4">
+                        <dt className="text-sm font-bold text-slate-500">
                             Serienummer
                         </dt>
-                        <dd className="mt-1 font-mono font-semibold">
+                        <dd className="mt-1 font-mono font-semibold text-slate-900">
                             {equipment.serialNumber}
                         </dd>
                     </div>
 
-                    <div className="rounded-2xl bg-white/10 p-4">
-                        <dt className="text-sm font-bold text-blue-100">
+                    <div className="rounded-2xl bg-slate-50 p-4">
+                        <dt className="text-sm font-bold text-slate-500">
                             Beskrivning
                         </dt>
-                        <dd className="mt-1 font-semibold">
+                        <dd className="mt-1 font-semibold text-slate-900">
                             {equipment.description || "-"}
                         </dd>
                     </div>
@@ -235,7 +236,7 @@ function LoanForm() {
                 </Alert>
             )}
 
-            <section className="rounded-3xl bg-white p-6 shadow-sm">
+            <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
                 <form onSubmit={handleSubmit} className="space-y-5">
                     <FormField id="borrowerName" label="Namn" required>
                         <input

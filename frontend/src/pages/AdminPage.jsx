@@ -18,7 +18,9 @@ function AdminPage() {
     async function fetchEquipment() {
         try {
             setLoading(true);
+
             const response = await api.get("/admin/equipment");
+
             setEquipment(response.data);
             setErrorMessage("");
         } catch (error) {
@@ -81,23 +83,20 @@ function AdminPage() {
 
     return (
         <div className="space-y-6">
-            <section className="rounded-3xl bg-white p-6 shadow-sm">
+            <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                        <Badge variant="hockey">Adminpanel</Badge>
+                        <Badge variant="hockey">Admin</Badge>
 
-                        <h1 className="mt-3">
-                            Utrustning & utlåningar
-                        </h1>
+                        <h1 className="mt-3">Utrustning</h1>
 
                         <p className="mt-2 max-w-2xl">
-                            Hantera klubbens hockeyutrustning, skapa QR-koder och markera
-                            utrustning som återlämnad.
+                            Hantera utrustning, skapa QR-koder och markera återlämningar.
                         </p>
                     </div>
 
                     <Link to="/admin/add">
-                        <Button size="lg" fullWidth>
+                        <Button size="lg" fullWidth className="sm:w-auto">
                             Lägg till utrustning
                         </Button>
                     </Link>
@@ -109,27 +108,19 @@ function AdminPage() {
                 aria-label="Statistik för utrustning"
             >
                 <div className="rounded-2xl bg-blue-950 p-5 text-white shadow-sm">
-                    <p className="text-sm font-semibold text-blue-100">
-                        Totalt
-                    </p>
-                    <p className="mt-2 text-3xl font-black">
-                        {totalCount}
-                    </p>
+                    <p className="text-sm font-semibold text-blue-100">Totalt</p>
+                    <p className="mt-2 text-3xl font-black">{totalCount}</p>
                 </div>
 
                 <div className="rounded-2xl bg-white p-5 shadow-sm">
-                    <p className="text-sm font-semibold text-slate-500">
-                        Tillgängliga
-                    </p>
+                    <p className="text-sm font-semibold text-slate-500">Tillgängliga</p>
                     <p className="mt-2 text-3xl font-black text-green-700">
                         {availableCount}
                     </p>
                 </div>
 
                 <div className="rounded-2xl bg-white p-5 shadow-sm">
-                    <p className="text-sm font-semibold text-slate-500">
-                        Utlånade
-                    </p>
+                    <p className="text-sm font-semibold text-slate-500">Utlånade</p>
                     <p className="mt-2 text-3xl font-black text-amber-700">
                         {loanedCount}
                     </p>
@@ -148,10 +139,11 @@ function AdminPage() {
                 </Alert>
             )}
 
-            <section className="rounded-3xl bg-white p-6 shadow-sm">
-                <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
+                <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                     <div>
-                        <h2>Utrustningslista</h2>
+                        <h2>Lista</h2>
+
                         <p className="mt-1 text-sm text-slate-600">
                             Sök på typ, serienummer eller beskrivning.
                         </p>
@@ -174,14 +166,15 @@ function AdminPage() {
                 </div>
 
                 {loading ? (
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
-                        <p className="font-medium text-slate-700">
-                            Laddar utrustning...
-                        </p>
+                    <div className="grid gap-3">
+                        <div className="h-20 animate-pulse rounded-2xl bg-slate-100" />
+                        <div className="h-20 animate-pulse rounded-2xl bg-slate-100" />
+                        <div className="h-20 animate-pulse rounded-2xl bg-slate-100" />
                     </div>
                 ) : filteredEquipment.length === 0 ? (
                     <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
                         <h3>Ingen utrustning hittades</h3>
+
                         <p className="mt-2 text-sm text-slate-600">
                             Prova en annan sökning eller lägg till ny utrustning.
                         </p>
@@ -257,6 +250,7 @@ function AdminPage() {
                                     <div className="flex items-start justify-between gap-3">
                                         <div>
                                             <h3>{item.type}</h3>
+
                                             <p className="mt-1 font-mono text-sm text-slate-600">
                                                 {item.serialNumber}
                                             </p>

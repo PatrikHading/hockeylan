@@ -47,7 +47,7 @@ function AddEquipment() {
             setErrorMessage("");
 
             await api.post("/admin/equipment", {
-                ...formData,
+                type: formData.type,
                 serialNumber: formData.serialNumber.trim(),
                 description: formData.description.trim(),
             });
@@ -63,16 +63,14 @@ function AddEquipment() {
     }
 
     return (
-        <div className="space-y-6">
-            <section className="rounded-3xl bg-white p-6 shadow-sm">
+        <div className="mx-auto max-w-3xl space-y-6">
+            <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
                 <Badge variant="hockey">Ny utrustning</Badge>
 
-                <h1 className="mt-3">
-                    Lägg till utrustning
-                </h1>
+                <h1 className="mt-3">Lägg till utrustning</h1>
 
-                <p className="mt-2 max-w-2xl">
-                    Registrera ny utrustning som senare kan lånas ut via QR-kod.
+                <p className="mt-2">
+                    Registrera ny utrustning och skapa QR-kod via adminpanelen.
                 </p>
             </section>
 
@@ -82,7 +80,7 @@ function AddEquipment() {
                 </Alert>
             )}
 
-            <section className="rounded-3xl bg-white p-6 shadow-sm">
+            <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
                 <form onSubmit={handleSubmit} className="space-y-5">
                     <FormField
                         id="type"
@@ -109,7 +107,7 @@ function AddEquipment() {
                         id="serialNumber"
                         label="Serienummer"
                         required
-                        helperText="Använd gärna ett tydligt format, till exempel HELMET-001."
+                        helperText="Exempel: HELMET-001 eller KIT-001-JR-M."
                     >
                         <input
                             id="serialNumber"
@@ -117,15 +115,15 @@ function AddEquipment() {
                             value={formData.serialNumber}
                             onChange={handleChange}
                             placeholder="Exempel: HELMET-001"
-                            required
                             autoComplete="off"
+                            required
                         />
                     </FormField>
 
                     <FormField
                         id="description"
                         label="Beskrivning"
-                        helperText="Lägg gärna till storlek, märke eller skick."
+                        helperText="Lägg gärna till storlek, färg, märke eller skick."
                     >
             <textarea
                 id="description"

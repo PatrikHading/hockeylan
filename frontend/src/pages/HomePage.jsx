@@ -1,29 +1,31 @@
 import { Link } from "react-router-dom";
-import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 
 function HomePage() {
     return (
-        <div className="space-y-8">
+        <div className="space-y-6">
             <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-blue-950 via-blue-900 to-blue-800 text-white shadow-xl">
-                <div className="flex flex-col gap-8 px-6 py-10 sm:px-10 lg:flex-row lg:items-center lg:justify-between lg:px-12">
-                    <div className="max-w-2xl space-y-5">
+                <div className="px-6 py-10 sm:px-10 sm:py-14 lg:px-16 lg:py-20">
+                    <div className="max-w-2xl space-y-6">
                         <div className="space-y-4">
-                            <h1 className="text-white">
-                                Hantera hockeyutrustning snabbt och enkelt
+                            <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">
+                                HockeyLån
                             </h1>
 
-                            <p className="max-w-xl text-base text-blue-100 sm:text-lg">
-                                HockeyLån gör det enkelt att låna ut,
-                                administrera och följa upp klubbens
-                                hockeyutrustning direkt från mobilen.
+                            <p className="text-lg font-bold text-blue-100">
+                                Hantera hockeyutrustning snabbt och enkelt
+                            </p>
+
+                            <p className="max-w-xl text-base leading-relaxed text-blue-50 sm:text-lg">
+                                HockeyLån gör det enkelt att låna ut, administrera och följa
+                                upp klubbens hockeyutrustning direkt från mobilen.
                             </p>
                         </div>
 
-                        <div className="flex flex-col gap-3 sm:flex-row">
+                        <div className="pt-2">
                             <Link to="/admin">
-                                <Button size="lg">
-                                    Öppna adminpanel
+                                <Button size="lg" className="w-full sm:w-auto">
+                                    Öppna admin-panel
                                 </Button>
                             </Link>
                         </div>
