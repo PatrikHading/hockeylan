@@ -21,10 +21,14 @@ function AdminPage() {
     }
 
     async function handleReturned(id) {
+        console.log("HANDLE RETURNED", id);
+
         try {
             await api.put(`/admin/equipment/${id}/returned`);
             await fetchEquipment();
         } catch (error) {
+            console.error("Fel vid återlämning:", error);
+
             setErrorMessage(
                 error.response?.data?.message || "Kunde inte markera som återlämnad."
             );
@@ -76,12 +80,14 @@ function AdminPage() {
                                 <th className="p-3">Åtgärder</th>
                             </tr>
                             </thead>
+
                             <tbody>
                             {equipment.map((item) => (
                                 <tr key={item.id} className="border-b">
                                     <td className="p-3">{item.type}</td>
                                     <td className="p-3 font-medium">{item.serialNumber}</td>
                                     <td className="p-3">{item.description || "-"}</td>
+
                                     <td className="p-3">
                                         {item.available ? (
                                             <span className="rounded-full bg-green-100 px-3 py-1 text-sm text-green-700">
@@ -93,23 +99,26 @@ function AdminPage() {
                         </span>
                                         )}
                                     </td>
-                                    <td className="flex flex-wrap gap-2 p-3">
-                                        <Link
-                                            to={`/admin/qr/${item.id}`}
-                                            className="rounded-lg bg-slate-200 px-3 py-2 text-sm hover:bg-slate-300"
-                                        >
-                                            QR
-                                        </Link>
 
-                                        {!item.available && (
-                                            <button
-                                                type="button"
-                                                onClick={() => handleReturned(item.id)}
-                                                className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-white hover:bg-slate-700"
+                                    <td className="p-3">
+                                        <div className="flex flex-wrap gap-2">
+                                            <Link
+                                                to={`/admin/qr/${item.id}`}
+                                                className="rounded-lg bg-slate-200 px-3 py-2 text-sm hover:bg-slate-300"
                                             >
-                                                Återlämnad
-                                            </button>
-                                        )}
+                                                QR
+                                            </Link>
+
+                                            {!item.available && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleReturned(item.id)}
+                                                    className="rounded-lg bg-slate-900 px-3 py-2 text-sm text-white hover:bg-slate-700"
+                                                >
+                                                    Återlämnad
+                                                </button>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))}

@@ -3,6 +3,7 @@ package com.norops.hockeylan.service;
 import com.norops.hockeylan.dto.LoanFormDTO;
 import com.norops.hockeylan.model.Equipment;
 import com.norops.hockeylan.model.Loan;
+import com.norops.hockeylan.repository.EquipmentRepository;
 import com.norops.hockeylan.repository.LoanRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -14,6 +15,7 @@ import java.util.List;
 public class LoanService {
 
     private final LoanRepository loanRepository;
+    private final EquipmentRepository equipmentRepository;
     private final EquipmentService equipmentService;
 
     @Transactional
@@ -41,15 +43,17 @@ public class LoanService {
         return loanRepository.findByReturnedFalse();
     }
 
-    @Transactional(readOnly = true)
-    public Loan markReturned(Equipment equipment) {
-        Loan activeLoan = loanRepository.findByEquipmentAndReturnedFalse(equipment)
+    @Transactional
+    public Equipment markReturned(Equipment equipment) {
+        Loan activeLoan = loanRepository.findByEquipmentIdAndReturnedFalse(equipment.getId())
                 .orElseThrow(() -> new IllegalStateException("No active loan found for equipment"));
 
         activeLoan.setReturned(true);
         equipment.setAvailable(true);
 
-        return loanRepository.save(activeLoan);
+        loanRepository.save(activeLoan);
+
+        return equipmentRepository.save(equipment);
     }
 
 

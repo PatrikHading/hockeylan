@@ -1,0 +1,38 @@
+services:
+  hockeylan-backend:
+    container_name: hockeylan-backend
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${SERVER_PORT:-8080}:8080"
+    environment:
+      SERVER_PORT: 8080
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      FRONTEND_URL: ${FRONTEND_URL}
+      QR_BASE_URL: ${QR_BASE_URL}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/admin/equipment || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+
+  hockeylan-frontend:
+    container_name: hockeylan-frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+    ports:
+      - "5173:80"
+    depends_on:
+      hockeylan-backend:
+        condition: service_healthy
+    restart: unless-stopped

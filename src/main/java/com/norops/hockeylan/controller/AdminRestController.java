@@ -53,9 +53,8 @@ public class AdminRestController {
     @PutMapping("/equipment/{id}/returned")
     public Equipment markAsReturned(@PathVariable Long id) {
         Equipment equipment = equipmentService.getEquipmentById(id);
-        loanService.markReturned(equipment);
 
-        return equipmentService.getEquipmentById(id);
+        return loanService.markReturned(equipment);
     }
 
 
