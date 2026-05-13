@@ -1,14 +1,24 @@
 package com.norops.hockeylan.model;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
 import java.time.LocalDateTime;
 
 @Getter
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "loans")
+@Table(
+        name = "loans",
+        indexes = {
+                @Index(name = "idx_loans_equipment_id", columnList = "equipment_id"),
+                @Index(name = "idx_loans_returned", columnList = "returned"),
+                @Index(name = "idx_loans_loan_date", columnList = "loanDate")
+        }
+)
 public class Loan {
 
     @Id
@@ -34,11 +44,10 @@ public class Loan {
     @Column(nullable = false)
     private boolean returned = false;
 
-    public Loan(Equipment equipment,
-                String borrowerName,
-                String email,
-                String phoneNumber
-    ) {
+    @Column(nullable = false)
+    private LocalDateTime updatedDate;
+
+    public Loan(Equipment equipment, String borrowerName, String email, String phoneNumber) {
         this.equipment = equipment;
         this.borrowerName = borrowerName;
         this.email = email;
@@ -48,6 +57,13 @@ public class Loan {
 
     @PrePersist
     protected void onCreate() {
-        this.loanDate = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now();
+        this.loanDate = now;
+        this.updatedDate = now;
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedDate = LocalDateTime.now();
     }
 }

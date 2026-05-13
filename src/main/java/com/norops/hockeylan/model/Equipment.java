@@ -11,7 +11,13 @@ import java.time.LocalDateTime;
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "equipment")
+@Table(
+        name = "equipment",
+        indexes = {
+                @Index(name = "idx_equipment_available", columnList = "available"),
+                @Index(name = "idx_equipment_type", columnList = "type")
+        }
+)
 public class Equipment {
 
     @Id
@@ -22,7 +28,7 @@ public class Equipment {
     @Column(nullable = false, length = 50)
     private EquipmentType type;
 
-    @Column(nullable = false, unique = true, length = 100)
+    @Column(nullable = false, length = 100)
     private String serialNumber;
 
     @Column(length = 500)
@@ -34,10 +40,10 @@ public class Equipment {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdDate;
 
-    public Equipment(EquipmentType type,
-                     String serialNumber,
-                     String description
-    ) {
+    @Column(nullable = false)
+    private LocalDateTime updatedDate;
+
+    public Equipment(EquipmentType type, String serialNumber, String description) {
         this.type = type;
         this.serialNumber = serialNumber;
         this.description = description;
@@ -46,6 +52,13 @@ public class Equipment {
 
     @PrePersist
     protected void onCreate() {
-        this.createdDate = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now();
+        this.createdDate = now;
+        this.updatedDate = now;
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedDate = LocalDateTime.now();
     }
 }

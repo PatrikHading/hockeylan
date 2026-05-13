@@ -34,15 +34,15 @@ public class EquipmentService {
 
     @Transactional(readOnly = true)
     public Equipment getEquipmentBySerialNumber(String serialNumber) {
-        return equipmentRepository.findBySerialNumber(serialNumber)
+        return equipmentRepository.findBySerialNumberIgnoreCase(serialNumber)
                 .orElseThrow(() -> new ResourceNotFoundException("Equipment not found with serial number: " + serialNumber));
     }
 
     @Transactional
     public Equipment addEquipment(EquipmentDTO equipmentDTO) {
-        String serialNumber = equipmentDTO.getSerialNumber().trim();
+        String serialNumber = equipmentDTO.getSerialNumber().trim().toUpperCase();
 
-        if (equipmentRepository.existsBySerialNumber(serialNumber)) {
+        if (equipmentRepository.existsBySerialNumberIgnoreCase(serialNumber)) {
             throw new DuplicateResourceException("Equipment already exists with serial number: " + serialNumber);
         }
 
