@@ -14,6 +14,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.util.UriUtils;
+
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @RestController
@@ -53,8 +56,19 @@ public class AdminRestController {
     public ResponseEntity<QrCodeResponseDTO> getQrCode(@PathVariable Long id) {
         Equipment equipment = equipmentService.getEquipmentById(id);
 
-        String loanUrl = qrBaseUrl + "/loan/" + equipment.getSerialNumber();
-        String qrCodeBase64 = QrCodeUtil.generateQrCodeBase64(loanUrl, QR_WIDTH, QR_HEIGHT);
+        String encodedSerialNumber = UriUtils.encodePathSegment(
+                equipment.getSerialNumber(),
+                StandardCharsets.UTF_8
+        );
+
+        String frontendBaseUrl = removeTrailingSlash(qrBaseUrl);
+        String loanUrl = frontendBaseUrl + "/loan/" + encodedSerialNumber;
+
+        String qrCodeBase64 = QrCodeUtil.generateQrCodeBase64(
+                loanUrl,
+                QR_WIDTH,
+                QR_HEIGHT
+        );
 
         QrCodeResponseDTO response = new QrCodeResponseDTO(
                 equipment.getSerialNumber(),
@@ -71,5 +85,15 @@ public class AdminRestController {
         Equipment returnedEquipment = loanService.markReturned(equipment);
 
         return ResponseEntity.ok(EquipmentMapper.toResponseDTO(returnedEquipment));
+    }
+
+    private String removeTrailingSlash(String url) {
+        if (url == null || url.isBlank()) {
+            return "";
+        }
+
+        return url.endsWith("/")
+                ? url.substring(0, url.length() - 1)
+                : url;
     }
 }
