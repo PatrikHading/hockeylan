@@ -3,9 +3,9 @@ import Button from "../components/ui/Button";
 
 function HomePage() {
     return (
-        <div className="space-y-6">
-            <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-blue-950 via-blue-900 to-blue-800 text-white shadow-xl">
-                <div className="px-6 py-10 sm:px-10 sm:py-14 lg:px-16 lg:py-20">
+        <div className="mobile-page space-y-6">
+            <section className="mobile-card overflow-hidden bg-gradient-to-br from-blue-950 via-blue-900 to-blue-800 text-white shadow-xl">
+                <div className="px-5 py-8 sm:px-10 sm:py-14 lg:px-16 lg:py-20">
                     <div className="max-w-2xl space-y-6">
                         <div className="space-y-4">
                             <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">
@@ -24,12 +24,22 @@ function HomePage() {
 
                         <div className="pt-2">
                             <Link to="/admin">
-                                <Button size="lg" className="w-full sm:w-auto">
+                                <Button size="lg" className="mobile-button w-full sm:w-auto">
                                     Öppna admin-panel
                                 </Button>
                             </Link>
                         </div>
                     </div>
+                </div>
+            </section>
+
+            <section className="mobile-card bg-white p-5 shadow-sm sm:p-6">
+                <h2>Så fungerar det</h2>
+
+                <div className="mt-4 grid gap-3 text-slate-700">
+                    <p>1. Skanna QR-koden på utrustningen.</p>
+                    <p>2. Fyll i namn, e-post och telefonnummer.</p>
+                    <p>3. Bekräfta lånet direkt i mobilen.</p>
                 </div>
             </section>
         </div>

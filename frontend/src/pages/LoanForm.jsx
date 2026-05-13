@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import axios from "axios";
+import api from "../api/api";
 
 export default function LoanForm() {
-
     const { serialNumber } = useParams();
     const navigate = useNavigate();
 
@@ -12,7 +11,7 @@ export default function LoanForm() {
     const [formData, setFormData] = useState({
         borrowerName: "",
         email: "",
-        phoneNumber: ""
+        phoneNumber: "",
     });
 
     const [loading, setLoading] = useState(true);
@@ -30,19 +29,12 @@ export default function LoanForm() {
             setLoading(true);
             setError("");
 
-            const response = await axios.get(
-                `http://localhost:8080/api/loan/${serialNumber}`
-            );
+            const response = await api.get(`/loan/${serialNumber}`);
 
             setEquipment(response.data);
         } catch (err) {
             console.error(err);
-
-            if (err.response?.data?.message) {
-                setError(err.response.data.message);
-            } else {
-                setError("Kunde inte hämta utrustning.");
-            }
+            setError(err.response?.data?.message || "Kunde inte hämta utrustning.");
         } finally {
             setLoading(false);
         }
@@ -51,9 +43,9 @@ export default function LoanForm() {
     function handleChange(event) {
         const { name, value } = event.target;
 
-        setFormData(prev => ({
+        setFormData((prev) => ({
             ...prev,
-            [name]: value
+            [name]: value,
         }));
     }
 
@@ -70,38 +62,31 @@ export default function LoanForm() {
             setError("");
             setSuccessMessage("");
 
-            await axios.post(
-                `http://localhost:8080/api/loan/${serialNumber}`,
-                {
-                    borrowerName: formData.borrowerName,
-                    email: formData.email,
-                    phoneNumber: formData.phoneNumber
-                }
-            );
+            await api.post(`/loan/${serialNumber}`, {
+                borrowerName: formData.borrowerName,
+                email: formData.email,
+                phoneNumber: formData.phoneNumber,
+            });
 
             setSuccessMessage("Utrustningen är nu utlånad.");
 
             setTimeout(() => {
-                navigate("/thank-you", {
+                navigate("/loan/success", {
                     state: {
                         equipmentType: equipment.type,
                         serialNumber: equipment.serialNumber,
                         borrowerName: formData.borrowerName,
-                        timestamp: new Date().toISOString()
-                    }
+                        timestamp: new Date().toISOString(),
+                    },
                 });
             }, 1200);
-
         } catch (err) {
             console.error(err);
-
-            if (err.response?.data?.message) {
-                setError(err.response.data.message);
-            } else if (err.request) {
-                setError("Kunde inte kontakta servern. Kontrollera internetanslutningen.");
-            } else {
-                setError("Något gick fel. Försök igen.");
-            }
+            setError(
+                err.response?.data?.message ||
+                err.displayMessage ||
+                "Något gick fel. Försök igen."
+            );
         } finally {
             setSubmitting(false);
         }
@@ -109,9 +94,9 @@ export default function LoanForm() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
+            <div className="mobile-page flex items-center justify-center bg-slate-950 px-4">
                 <div className="text-center">
-                    <div className="w-12 h-12 border-4 border-slate-700 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+                    <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-slate-700 border-t-blue-500" />
                     <p className="text-slate-300">Hämtar utrustning...</p>
                 </div>
             </div>
@@ -121,13 +106,11 @@ export default function LoanForm() {
     const isAvailable = equipment?.available;
 
     return (
-        <div className="min-h-screen bg-slate-950 px-4 py-8">
-            <div className="max-w-xl mx-auto">
-
-                <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
-
+        <div className="mobile-page safe-bottom bg-slate-950 px-4 py-6">
+            <div className="mx-auto max-w-xl">
+                <div className="mobile-card overflow-hidden bg-slate-900 shadow-2xl ring-1 ring-slate-800">
                     <div className="bg-gradient-to-r from-blue-600 to-cyan-600 p-6">
-                        <h1 className="text-3xl font-bold text-white mb-2">
+                        <h1 className="mb-2 text-3xl font-bold text-white">
                             Låna utrustning
                         </h1>
 
@@ -136,22 +119,21 @@ export default function LoanForm() {
                         </p>
                     </div>
 
-                    <div className="p-6">
-
+                    <div className="p-5 sm:p-6">
                         {equipment && (
                             <>
                                 <div
                                     className={
                                         isAvailable
-                                            ? "bg-green-950 border border-green-700 rounded-2xl p-4 mb-6"
-                                            : "bg-amber-950 border border-amber-700 rounded-2xl p-4 mb-6"
+                                            ? "mb-6 rounded-2xl border border-green-700 bg-green-950 p-4"
+                                            : "mb-6 rounded-2xl border border-amber-700 bg-amber-950 p-4"
                                     }
                                 >
                                     <p
                                         className={
                                             isAvailable
-                                                ? "text-green-300 font-bold"
-                                                : "text-amber-300 font-bold"
+                                                ? "font-bold text-green-300"
+                                                : "font-bold text-amber-300"
                                         }
                                     >
                                         {isAvailable ? "Tillgänglig" : "Redan utlånad"}
@@ -164,21 +146,21 @@ export default function LoanForm() {
                                     </p>
                                 </div>
 
-                                <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-6">
-                                    <p className="text-slate-400 text-sm mb-1">
+                                <div className="mb-6 rounded-2xl border border-slate-700 bg-slate-800 p-4">
+                                    <p className="mb-1 text-sm text-slate-400">
                                         Utrustning
                                     </p>
 
-                                    <p className="text-white font-semibold text-lg">
+                                    <p className="text-lg font-semibold text-white">
                                         {equipment.type}
                                     </p>
 
-                                    <p className="text-slate-400 text-sm">
+                                    <p className="text-sm text-slate-400">
                                         {equipment.serialNumber}
                                     </p>
 
                                     {equipment.description && (
-                                        <p className="mt-3 text-slate-300 text-sm">
+                                        <p className="mt-3 text-sm text-slate-300">
                                             {equipment.description}
                                         </p>
                                     )}
@@ -187,25 +169,24 @@ export default function LoanForm() {
                         )}
 
                         {error && (
-                            <div className="bg-red-950 border border-red-800 rounded-2xl p-4 mb-6">
-                                <p className="text-red-300 font-medium">
+                            <div className="mb-6 rounded-2xl border border-red-800 bg-red-950 p-4">
+                                <p className="font-medium text-red-300">
                                     {error}
                                 </p>
                             </div>
                         )}
 
                         {successMessage && (
-                            <div className="bg-green-950 border border-green-800 rounded-2xl p-4 mb-6">
-                                <p className="text-green-300 font-medium">
+                            <div className="mb-6 rounded-2xl border border-green-800 bg-green-950 p-4">
+                                <p className="font-medium text-green-300">
                                     {successMessage}
                                 </p>
                             </div>
                         )}
 
                         <form onSubmit={handleSubmit} className="space-y-5">
-
                             <div>
-                                <label className="block text-slate-300 mb-2">
+                                <label className="mb-2 block text-slate-300">
                                     Namn
                                 </label>
 
@@ -216,12 +197,12 @@ export default function LoanForm() {
                                     onChange={handleChange}
                                     required
                                     disabled={!isAvailable || submitting}
-                                    className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-white disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:border-blue-500"
+                                    className="mobile-input w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-white disabled:cursor-not-allowed disabled:opacity-50 focus:border-blue-500 focus:outline-none"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-slate-300 mb-2">
+                                <label className="mb-2 block text-slate-300">
                                     E-post
                                 </label>
 
@@ -232,12 +213,12 @@ export default function LoanForm() {
                                     onChange={handleChange}
                                     required
                                     disabled={!isAvailable || submitting}
-                                    className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-white disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:border-blue-500"
+                                    className="mobile-input w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-white disabled:cursor-not-allowed disabled:opacity-50 focus:border-blue-500 focus:outline-none"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-slate-300 mb-2">
+                                <label className="mb-2 block text-slate-300">
                                     Telefonnummer
                                 </label>
 
@@ -248,14 +229,14 @@ export default function LoanForm() {
                                     onChange={handleChange}
                                     required
                                     disabled={!isAvailable || submitting}
-                                    className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-white disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:border-blue-500"
+                                    className="mobile-input w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-white disabled:cursor-not-allowed disabled:opacity-50 focus:border-blue-500 focus:outline-none"
                                 />
                             </div>
 
                             <button
                                 type="submit"
                                 disabled={submitting || !isAvailable}
-                                className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-2xl transition-all"
+                                className="mobile-button w-full rounded-2xl bg-blue-600 px-4 py-4 font-semibold text-white transition-all hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-slate-700"
                             >
                                 {!isAvailable
                                     ? "Redan utlånad"
@@ -263,9 +244,7 @@ export default function LoanForm() {
                                         ? "Registrerar lån..."
                                         : "Låna utrustning"}
                             </button>
-
                         </form>
-
                     </div>
                 </div>
             </div>

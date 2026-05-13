@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import axios from "axios";
+import api from "../api/api";
 
 export default function QrCodeView() {
     const { id } = useParams();
-    const labelRef = useRef(null);
 
     const [qrData, setQrData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -20,14 +19,12 @@ export default function QrCodeView() {
             setLoading(true);
             setError("");
 
-            const response = await axios.get(
-                `http://localhost:8080/api/admin/equipment/${id}/qr`
-            );
+            const response = await api.get(`/admin/equipment/${id}/qr`);
 
             setQrData(response.data);
         } catch (err) {
             console.error(err);
-            setError("Kunde inte hämta QR-kod.");
+            setError(err.response?.data?.message || "Kunde inte hämta QR-kod.");
         } finally {
             setLoading(false);
         }
@@ -74,7 +71,7 @@ export default function QrCodeView() {
             context.fillStyle = "#0f172a";
             context.font = "bold 54px Arial";
             context.textAlign = "center";
-            context.fillText("Hockeylan", canvas.width / 2, 90);
+            context.fillText("HockeyLån", canvas.width / 2, 90);
 
             context.fillStyle = "#334155";
             context.font = "32px Arial";
@@ -125,10 +122,10 @@ export default function QrCodeView() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center shadow-xl">
-                    <div className="w-12 h-12 border-4 border-slate-700 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-slate-300 text-lg">Hämtar QR-kod...</p>
+            <div className="mobile-page flex items-center justify-center bg-slate-950 px-4">
+                <div className="rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center shadow-xl">
+                    <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-slate-700 border-t-blue-500" />
+                    <p className="text-lg text-slate-300">Hämtar QR-kod...</p>
                 </div>
             </div>
         );
@@ -136,12 +133,15 @@ export default function QrCodeView() {
 
     if (error) {
         return (
-            <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
-                <div className="bg-red-950 border border-red-800 rounded-2xl p-8 max-w-md w-full text-center">
-                    <h2 className="text-2xl font-bold text-red-300 mb-4">
+            <div className="mobile-page flex items-center justify-center bg-slate-950 px-4">
+                <div className="w-full max-w-md rounded-2xl border border-red-800 bg-red-950 p-8 text-center">
+                    <h2 className="mb-4 text-2xl font-bold text-red-300">
                         Något gick fel
                     </h2>
-                    <p className="text-red-200">{error}</p>
+
+                    <p className="text-red-200">
+                        {error}
+                    </p>
                 </div>
             </div>
         );
@@ -150,25 +150,20 @@ export default function QrCodeView() {
     const isAvailable = qrData.available;
 
     return (
-        <div className="min-h-screen bg-slate-950 px-4 py-8 print:bg-white">
-            <div className="max-w-xl mx-auto">
-
-                <div
-                    ref={labelRef}
-                    className="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden print:shadow-none print:border-none print:bg-white"
-                >
-
-                    <div className="bg-gradient-to-r from-blue-600 to-cyan-600 p-6 text-center print:bg-none print:bg-white">
-                        <h1 className="text-3xl font-bold text-white mb-2 print:text-slate-950">
+        <div className="mobile-page safe-bottom bg-slate-950 px-4 py-6 print:bg-white">
+            <div className="mx-auto max-w-xl">
+                <div className="mobile-card overflow-hidden border border-slate-800 bg-slate-900 shadow-2xl print:border-none print:bg-white print:shadow-none">
+                    <div className="bg-gradient-to-r from-blue-600 to-cyan-600 p-6 text-center print:bg-white">
+                        <h1 className="mb-2 text-3xl font-bold text-white print:text-slate-950">
                             QR-kod
                         </h1>
+
                         <p className="text-blue-100 print:text-slate-700">
                             Skanna för att låna utrustningen
                         </p>
                     </div>
 
-                    <div className="p-6 md:p-8">
-
+                    <div className="p-5 sm:p-8">
                         <div
                             className={
                                 isAvailable
@@ -193,95 +188,101 @@ export default function QrCodeView() {
                             </p>
                         </div>
 
-                        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-6 space-y-3 print:bg-white print:border-slate-300">
+                        <div className="mb-6 space-y-3 rounded-2xl border border-slate-700 bg-slate-800 p-4 print:border-slate-300 print:bg-white">
                             <div className="flex items-center justify-between gap-4">
-                                <span className="text-slate-400 print:text-slate-600">Typ</span>
-                                <span className="text-white font-semibold text-right print:text-slate-950">
+                                <span className="text-slate-400 print:text-slate-600">
+                                    Typ
+                                </span>
+
+                                <span className="text-right font-semibold text-white print:text-slate-950">
                                     {qrData.type}
                                 </span>
                             </div>
 
                             <div className="flex items-center justify-between gap-4">
-                                <span className="text-slate-400 print:text-slate-600">Serienummer</span>
-                                <span className="text-white font-semibold text-right print:text-slate-950">
+                                <span className="text-slate-400 print:text-slate-600">
+                                    Serienummer
+                                </span>
+
+                                <span className="text-right font-semibold text-white print:text-slate-950">
                                     {qrData.serialNumber}
                                 </span>
                             </div>
 
                             {qrData.description && (
                                 <div className="border-t border-slate-700 pt-3 print:border-slate-300">
-                                    <p className="text-slate-400 text-sm mb-1 print:text-slate-600">
+                                    <p className="mb-1 text-sm text-slate-400 print:text-slate-600">
                                         Beskrivning
                                     </p>
-                                    <p className="text-slate-200 text-sm print:text-slate-950">
+
+                                    <p className="text-sm text-slate-200 print:text-slate-950">
                                         {qrData.description}
                                     </p>
                                 </div>
                             )}
                         </div>
 
-                        <div className="bg-white rounded-3xl p-6 shadow-inner mb-6">
+                        <div className="mb-6 rounded-3xl bg-white p-5 shadow-inner sm:p-6">
                             <img
                                 src={`data:image/png;base64,${qrData.qrCodeBase64}`}
                                 alt="QR-kod"
-                                className="w-full max-w-sm mx-auto"
+                                className="mx-auto w-full max-w-md"
                             />
                         </div>
 
-                        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-6 break-all print:hidden">
-                            <p className="text-slate-400 text-sm mb-2">
+                        <div className="mb-6 break-all rounded-2xl border border-slate-700 bg-slate-800 p-4 print:hidden">
+                            <p className="mb-2 text-sm text-slate-400">
                                 Lånelänk
                             </p>
 
-                            <p className="text-blue-400 text-sm">
+                            <p className="text-sm text-blue-400">
                                 {qrData.loanUrl}
                             </p>
                         </div>
 
                         {copyMessage && (
                             <div className="mb-6 rounded-2xl border border-green-800 bg-green-950 p-4 print:hidden">
-                                <p className="text-green-300 text-sm text-center font-medium">
+                                <p className="text-center text-sm font-medium text-green-300">
                                     {copyMessage}
                                 </p>
                             </div>
                         )}
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 print:hidden">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 print:hidden">
                             <button
                                 onClick={copyUrl}
-                                className="bg-slate-800 hover:bg-slate-700 text-white font-semibold py-3 px-4 rounded-2xl transition-all"
+                                className="mobile-button rounded-2xl bg-slate-800 px-4 py-3 font-semibold text-white transition-all hover:bg-slate-700"
                             >
                                 Kopiera länk
                             </button>
 
                             <button
                                 onClick={downloadQrCode}
-                                className="bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 px-4 rounded-2xl transition-all"
+                                className="mobile-button rounded-2xl bg-blue-600 px-4 py-3 font-semibold text-white transition-all hover:bg-blue-500"
                             >
                                 Ladda ner QR
                             </button>
 
                             <button
                                 onClick={downloadQrLabel}
-                                className="bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-3 px-4 rounded-2xl transition-all"
+                                className="mobile-button rounded-2xl bg-cyan-600 px-4 py-3 font-semibold text-white transition-all hover:bg-cyan-500"
                             >
                                 Ladda ner etikett
                             </button>
 
                             <button
                                 onClick={printQrLabel}
-                                className="bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 px-4 rounded-2xl transition-all"
+                                className="mobile-button rounded-2xl bg-slate-700 px-4 py-3 font-semibold text-white transition-all hover:bg-slate-600"
                             >
                                 Skriv ut
                             </button>
                         </div>
 
-                        <div className="mt-6 bg-green-950 border border-green-800 rounded-2xl p-4 print:hidden">
-                            <p className="text-green-300 text-sm text-center">
+                        <div className="mt-6 rounded-2xl border border-green-800 bg-green-950 p-4 print:hidden">
+                            <p className="text-center text-sm text-green-300">
                                 Tips: Ladda ner etiketten om du vill skriva ut en tydligare QR-lapp till utrustningen.
                             </p>
                         </div>
-
                     </div>
                 </div>
             </div>

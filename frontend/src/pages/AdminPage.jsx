@@ -82,8 +82,8 @@ function AdminPage() {
     }
 
     return (
-        <div className="space-y-6">
-            <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
+        <div className="mobile-page safe-bottom space-y-6">
+            <section className="mobile-card rounded-3xl bg-white p-5 shadow-sm sm:p-6">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                         <Badge variant="hockey">Admin</Badge>
@@ -96,7 +96,7 @@ function AdminPage() {
                     </div>
 
                     <Link to="/admin/add">
-                        <Button size="lg" fullWidth className="sm:w-auto">
+                        <Button size="lg" fullWidth className="mobile-button sm:w-auto">
                             Lägg till utrustning
                         </Button>
                     </Link>
@@ -104,7 +104,7 @@ function AdminPage() {
             </section>
 
             <section
-                className="grid gap-4 sm:grid-cols-3"
+                className="grid grid-cols-1 gap-4 sm:grid-cols-3"
                 aria-label="Statistik för utrustning"
             >
                 <div className="rounded-2xl bg-blue-950 p-5 text-white shadow-sm">
@@ -139,7 +139,7 @@ function AdminPage() {
                 </Alert>
             )}
 
-            <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
+            <section className="mobile-card rounded-3xl bg-white p-5 shadow-sm sm:p-6">
                 <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                     <div>
                         <h2>Lista</h2>
@@ -161,6 +161,7 @@ function AdminPage() {
                             onChange={(event) => setSearchTerm(event.target.value)}
                             placeholder="Sök utrustning..."
                             aria-label="Sök utrustning"
+                            className="mobile-input"
                         />
                     </div>
                 </div>
@@ -219,7 +220,7 @@ function AdminPage() {
                                         <td>
                                             <div className="flex flex-wrap gap-2">
                                                 <Link to={`/admin/qr/${item.id}`}>
-                                                    <Button variant="outline" size="sm">
+                                                    <Button variant="outline" size="sm" className="mobile-button">
                                                         QR
                                                     </Button>
                                                 </Link>
@@ -228,6 +229,7 @@ function AdminPage() {
                                                     <Button
                                                         variant="secondary"
                                                         size="sm"
+                                                        className="mobile-button"
                                                         onClick={() => setSelectedEquipment(item)}
                                                     >
                                                         Återlämnad
@@ -269,7 +271,7 @@ function AdminPage() {
 
                                     <div className="mt-4 flex flex-col gap-2">
                                         <Link to={`/admin/qr/${item.id}`}>
-                                            <Button variant="outline" fullWidth>
+                                            <Button variant="outline" fullWidth className="mobile-button">
                                                 Visa QR-kod
                                             </Button>
                                         </Link>
@@ -278,6 +280,7 @@ function AdminPage() {
                                             <Button
                                                 variant="secondary"
                                                 fullWidth
+                                                className="mobile-button"
                                                 onClick={() => setSelectedEquipment(item)}
                                             >
                                                 Markera som återlämnad
