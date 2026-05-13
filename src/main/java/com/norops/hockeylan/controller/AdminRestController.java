@@ -72,6 +72,9 @@ public class AdminRestController {
 
         QrCodeResponseDTO response = new QrCodeResponseDTO(
                 equipment.getSerialNumber(),
+                equipment.getType(),
+                equipment.getDescription(),
+                equipment.isAvailable(),
                 loanUrl,
                 qrCodeBase64
         );

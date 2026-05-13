@@ -26,9 +26,7 @@ export default function LoanForm() {
     }, []);
 
     async function fetchEquipment() {
-
         try {
-
             setLoading(true);
             setError("");
 
@@ -37,9 +35,7 @@ export default function LoanForm() {
             );
 
             setEquipment(response.data);
-
         } catch (err) {
-
             console.error(err);
 
             if (err.response?.data?.message) {
@@ -47,14 +43,12 @@ export default function LoanForm() {
             } else {
                 setError("Kunde inte hämta utrustning.");
             }
-
         } finally {
             setLoading(false);
         }
     }
 
     function handleChange(event) {
-
         const { name, value } = event.target;
 
         setFormData(prev => ({
@@ -64,11 +58,14 @@ export default function LoanForm() {
     }
 
     async function handleSubmit(event) {
-
         event.preventDefault();
 
-        try {
+        if (!equipment?.available) {
+            setError("Denna utrustning är redan utlånad.");
+            return;
+        }
 
+        try {
             setSubmitting(true);
             setError("");
             setSuccessMessage("");
@@ -89,26 +86,16 @@ export default function LoanForm() {
             }, 1200);
 
         } catch (err) {
-
             console.error(err);
 
             if (err.response?.data?.message) {
-
                 setError(err.response.data.message);
-
             } else if (err.request) {
-
-                setError(
-                    "Kunde inte kontakta servern. Kontrollera internetanslutningen."
-                );
-
+                setError("Kunde inte kontakta servern. Kontrollera internetanslutningen.");
             } else {
-
                 setError("Något gick fel. Försök igen.");
             }
-
         } finally {
-
             setSubmitting(false);
         }
     }
@@ -118,14 +105,13 @@ export default function LoanForm() {
             <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
                 <div className="text-center">
                     <div className="w-12 h-12 border-4 border-slate-700 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
-
-                    <p className="text-slate-300">
-                        Hämtar utrustning...
-                    </p>
+                    <p className="text-slate-300">Hämtar utrustning...</p>
                 </div>
             </div>
         );
     }
+
+    const isAvailable = equipment?.available;
 
     return (
         <div className="min-h-screen bg-slate-950 px-4 py-8">
@@ -146,19 +132,51 @@ export default function LoanForm() {
                     <div className="p-6">
 
                         {equipment && (
-                            <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-6">
-                                <p className="text-slate-400 text-sm mb-1">
-                                    Utrustning
-                                </p>
+                            <>
+                                <div
+                                    className={
+                                        isAvailable
+                                            ? "bg-green-950 border border-green-700 rounded-2xl p-4 mb-6"
+                                            : "bg-amber-950 border border-amber-700 rounded-2xl p-4 mb-6"
+                                    }
+                                >
+                                    <p
+                                        className={
+                                            isAvailable
+                                                ? "text-green-300 font-bold"
+                                                : "text-amber-300 font-bold"
+                                        }
+                                    >
+                                        {isAvailable ? "Tillgänglig" : "Redan utlånad"}
+                                    </p>
 
-                                <p className="text-white font-semibold text-lg">
-                                    {equipment.name}
-                                </p>
+                                    <p className="mt-1 text-sm text-slate-300">
+                                        {isAvailable
+                                            ? "Denna utrustning kan lånas nu."
+                                            : "Denna utrustning kan inte lånas igen förrän den är återlämnad."}
+                                    </p>
+                                </div>
 
-                                <p className="text-slate-400 text-sm">
-                                    {equipment.serialNumber}
-                                </p>
-                            </div>
+                                <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-6">
+                                    <p className="text-slate-400 text-sm mb-1">
+                                        Utrustning
+                                    </p>
+
+                                    <p className="text-white font-semibold text-lg">
+                                        {equipment.type}
+                                    </p>
+
+                                    <p className="text-slate-400 text-sm">
+                                        {equipment.serialNumber}
+                                    </p>
+
+                                    {equipment.description && (
+                                        <p className="mt-3 text-slate-300 text-sm">
+                                            {equipment.description}
+                                        </p>
+                                    )}
+                                </div>
+                            </>
                         )}
 
                         {error && (
@@ -190,7 +208,8 @@ export default function LoanForm() {
                                     value={formData.borrowerName}
                                     onChange={handleChange}
                                     required
-                                    className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-blue-500"
+                                    disabled={!isAvailable || submitting}
+                                    className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-white disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:border-blue-500"
                                 />
                             </div>
 
@@ -205,7 +224,8 @@ export default function LoanForm() {
                                     value={formData.email}
                                     onChange={handleChange}
                                     required
-                                    className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-blue-500"
+                                    disabled={!isAvailable || submitting}
+                                    className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-white disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:border-blue-500"
                                 />
                             </div>
 
@@ -220,18 +240,21 @@ export default function LoanForm() {
                                     value={formData.phoneNumber}
                                     onChange={handleChange}
                                     required
-                                    className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-blue-500"
+                                    disabled={!isAvailable || submitting}
+                                    className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-white disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:border-blue-500"
                                 />
                             </div>
 
                             <button
                                 type="submit"
-                                disabled={submitting}
+                                disabled={submitting || !isAvailable}
                                 className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-2xl transition-all"
                             >
-                                {submitting
-                                    ? "Registrerar lån..."
-                                    : "Låna utrustning"}
+                                {!isAvailable
+                                    ? "Redan utlånad"
+                                    : submitting
+                                        ? "Registrerar lån..."
+                                        : "Låna utrustning"}
                             </button>
 
                         </form>

@@ -25,7 +25,6 @@ export default function QrCodeView() {
             setQrData(response.data);
         } catch (err) {
             console.error(err);
-
             setError("Kunde inte hämta QR-kod.");
         } finally {
             setLoading(false);
@@ -35,7 +34,6 @@ export default function QrCodeView() {
     async function copyUrl() {
         try {
             await navigator.clipboard.writeText(qrData.loanUrl);
-
             alert("Länk kopierad!");
         } catch (err) {
             console.error(err);
@@ -49,9 +47,7 @@ export default function QrCodeView() {
         link.download = `${qrData.serialNumber}-qr.png`;
 
         document.body.appendChild(link);
-
         link.click();
-
         document.body.removeChild(link);
     }
 
@@ -60,10 +56,7 @@ export default function QrCodeView() {
             <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
                 <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center shadow-xl">
                     <div className="w-12 h-12 border-4 border-slate-700 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
-
-                    <p className="text-slate-300 text-lg">
-                        Hämtar QR-kod...
-                    </p>
+                    <p className="text-slate-300 text-lg">Hämtar QR-kod...</p>
                 </div>
             </div>
         );
@@ -76,26 +69,23 @@ export default function QrCodeView() {
                     <h2 className="text-2xl font-bold text-red-300 mb-4">
                         Något gick fel
                     </h2>
-
-                    <p className="text-red-200">
-                        {error}
-                    </p>
+                    <p className="text-red-200">{error}</p>
                 </div>
             </div>
         );
     }
 
+    const isAvailable = qrData.available;
+
     return (
         <div className="min-h-screen bg-slate-950 px-4 py-8">
             <div className="max-w-xl mx-auto">
-
                 <div className="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden">
 
                     <div className="bg-gradient-to-r from-blue-600 to-cyan-600 p-6 text-center">
                         <h1 className="text-3xl font-bold text-white mb-2">
                             QR-kod
                         </h1>
-
                         <p className="text-blue-100">
                             Skanna för att låna utrustningen
                         </p>
@@ -103,16 +93,55 @@ export default function QrCodeView() {
 
                     <div className="p-6 md:p-8">
 
-                        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-6">
-                            <div className="flex items-center justify-between">
-                                <span className="text-slate-400">
-                                    Serienummer
-                                </span>
+                        <div
+                            className={
+                                isAvailable
+                                    ? "mb-6 rounded-2xl border border-green-700 bg-green-950 p-4"
+                                    : "mb-6 rounded-2xl border border-amber-700 bg-amber-950 p-4"
+                            }
+                        >
+                            <p
+                                className={
+                                    isAvailable
+                                        ? "text-sm font-bold text-green-300"
+                                        : "text-sm font-bold text-amber-300"
+                                }
+                            >
+                                {isAvailable ? "Tillgänglig" : "Utlånad"}
+                            </p>
 
-                                <span className="text-white font-semibold">
+                            <p className="mt-1 text-sm text-slate-300">
+                                {isAvailable
+                                    ? "Denna utrustning kan lånas via QR-koden."
+                                    : "Denna utrustning är redan utlånad och kan inte lånas igen just nu."}
+                            </p>
+                        </div>
+
+                        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-6 space-y-3">
+                            <div className="flex items-center justify-between gap-4">
+                                <span className="text-slate-400">Typ</span>
+                                <span className="text-white font-semibold text-right">
+                                    {qrData.type}
+                                </span>
+                            </div>
+
+                            <div className="flex items-center justify-between gap-4">
+                                <span className="text-slate-400">Serienummer</span>
+                                <span className="text-white font-semibold text-right">
                                     {qrData.serialNumber}
                                 </span>
                             </div>
+
+                            {qrData.description && (
+                                <div className="border-t border-slate-700 pt-3">
+                                    <p className="text-slate-400 text-sm mb-1">
+                                        Beskrivning
+                                    </p>
+                                    <p className="text-slate-200 text-sm">
+                                        {qrData.description}
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
                         <div className="bg-white rounded-3xl p-6 shadow-inner mb-6">
@@ -134,7 +163,6 @@ export default function QrCodeView() {
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
                             <button
                                 onClick={copyUrl}
                                 className="bg-slate-800 hover:bg-slate-700 text-white font-semibold py-3 px-4 rounded-2xl transition-all"
@@ -148,7 +176,6 @@ export default function QrCodeView() {
                             >
                                 Ladda ner QR
                             </button>
-
                         </div>
 
                         <div className="mt-6 bg-green-950 border border-green-800 rounded-2xl p-4">
