@@ -1,120 +1,165 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import api from "../api/api";
-import Alert from "../components/ui/Alert";
-import Badge from "../components/ui/Badge";
-import Button from "../components/ui/Button";
+import { useParams } from "react-router-dom";
+import axios from "axios";
 
-function QrCodeView() {
+export default function QrCodeView() {
     const { id } = useParams();
 
     const [qrData, setQrData] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [errorMessage, setErrorMessage] = useState("");
+    const [error, setError] = useState("");
 
     useEffect(() => {
-        async function fetchQrCode() {
-            try {
-                const response = await api.get(`/admin/equipment/${id}/qr`);
-                setQrData(response.data);
-            } catch (error) {
-                setErrorMessage("Kunde inte hämta QR-kod.");
-            } finally {
-                setLoading(false);
-            }
-        }
-
         fetchQrCode();
-    }, [id]);
+    }, []);
+
+    async function fetchQrCode() {
+        try {
+            setLoading(true);
+            setError("");
+
+            const response = await axios.get(
+                `http://localhost:8080/api/admin/equipment/${id}/qr`
+            );
+
+            setQrData(response.data);
+        } catch (err) {
+            console.error(err);
+
+            setError("Kunde inte hämta QR-kod.");
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function copyUrl() {
+        try {
+            await navigator.clipboard.writeText(qrData.loanUrl);
+
+            alert("Länk kopierad!");
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    function downloadQrCode() {
+        const link = document.createElement("a");
+
+        link.href = `data:image/png;base64,${qrData.qrCodeBase64}`;
+        link.download = `${qrData.serialNumber}-qr.png`;
+
+        document.body.appendChild(link);
+
+        link.click();
+
+        document.body.removeChild(link);
+    }
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center shadow-xl">
+                    <div className="w-12 h-12 border-4 border-slate-700 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+
+                    <p className="text-slate-300 text-lg">
+                        Hämtar QR-kod...
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
+                <div className="bg-red-950 border border-red-800 rounded-2xl p-8 max-w-md w-full text-center">
+                    <h2 className="text-2xl font-bold text-red-300 mb-4">
+                        Något gick fel
+                    </h2>
+
+                    <p className="text-red-200">
+                        {error}
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div className="mx-auto max-w-4xl space-y-6">
-            <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
-                <Badge variant="hockey">QR-kod</Badge>
+        <div className="min-h-screen bg-slate-950 px-4 py-8">
+            <div className="max-w-xl mx-auto">
 
-                <h1 className="mt-3">QR-kod</h1>
+                <div className="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden">
 
-                <p className="mt-2 max-w-2xl">
-                    Skriv ut eller spara QR-koden och fäst den på utrustningen.
-                </p>
-            </section>
+                    <div className="bg-gradient-to-r from-blue-600 to-cyan-600 p-6 text-center">
+                        <h1 className="text-3xl font-bold text-white mb-2">
+                            QR-kod
+                        </h1>
 
-            {loading && (
-                <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
-                    <div className="h-6 w-40 animate-pulse rounded-full bg-slate-100" />
-                    <div className="mt-5 h-72 w-72 max-w-full animate-pulse rounded-3xl bg-slate-100" />
-                </section>
-            )}
-
-            {errorMessage && (
-                <Alert title="Något gick fel" variant="danger">
-                    {errorMessage}
-                </Alert>
-            )}
-
-            {qrData && (
-                <section className="grid gap-6 lg:grid-cols-[1fr_360px]">
-                    <div className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
-                        <h2>Utrustning</h2>
-
-                        <dl className="mt-5 grid gap-4">
-                            <div className="rounded-2xl bg-slate-50 p-4">
-                                <dt className="text-sm font-bold text-slate-500">
-                                    Serienummer
-                                </dt>
-
-                                <dd className="mt-1 font-mono font-semibold text-slate-900">
-                                    {qrData.serialNumber}
-                                </dd>
-                            </div>
-
-                            <div className="rounded-2xl bg-slate-50 p-4">
-                                <dt className="text-sm font-bold text-slate-500">
-                                    Lånelänk
-                                </dt>
-
-                                <dd className="mt-1 break-all font-mono text-sm font-semibold text-slate-900">
-                                    {qrData.loanUrl}
-                                </dd>
-                            </div>
-                        </dl>
-
-                        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                            <Link to="/admin">
-                                <Button variant="outline" fullWidth className="sm:w-auto">
-                                    Tillbaka
-                                </Button>
-                            </Link>
-
-                            <Button
-                                fullWidth
-                                className="sm:w-auto"
-                                onClick={() => window.print()}
-                            >
-                                Skriv ut
-                            </Button>
-                        </div>
+                        <p className="text-blue-100">
+                            Skanna för att låna utrustningen
+                        </p>
                     </div>
 
-                    <aside className="rounded-3xl bg-blue-950 p-5 text-center text-white shadow-sm sm:p-6">
-                        <h2 className="text-white">Skanna här</h2>
+                    <div className="p-6 md:p-8">
 
-                        <div className="mt-5 rounded-3xl bg-white p-4 sm:p-5">
+                        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-6">
+                            <div className="flex items-center justify-between">
+                                <span className="text-slate-400">
+                                    Serienummer
+                                </span>
+
+                                <span className="text-white font-semibold">
+                                    {qrData.serialNumber}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-3xl p-6 shadow-inner mb-6">
                             <img
                                 src={`data:image/png;base64,${qrData.qrCodeBase64}`}
-                                alt={`QR-kod för ${qrData.serialNumber}`}
-                                className="mx-auto h-72 w-72 max-w-full"
+                                alt="QR-kod"
+                                className="w-full max-w-sm mx-auto"
                             />
                         </div>
 
-                        <p className="mt-4 text-sm text-blue-100">
-                            QR-koden leder till låneformuläret.
-                        </p>
-                    </aside>
-                </section>
-            )}
+                        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-6 break-all">
+                            <p className="text-slate-400 text-sm mb-2">
+                                Lånelänk
+                            </p>
+
+                            <p className="text-blue-400 text-sm">
+                                {qrData.loanUrl}
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                            <button
+                                onClick={copyUrl}
+                                className="bg-slate-800 hover:bg-slate-700 text-white font-semibold py-3 px-4 rounded-2xl transition-all"
+                            >
+                                Kopiera länk
+                            </button>
+
+                            <button
+                                onClick={downloadQrCode}
+                                className="bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 px-4 rounded-2xl transition-all"
+                            >
+                                Ladda ner QR
+                            </button>
+
+                        </div>
+
+                        <div className="mt-6 bg-green-950 border border-green-800 rounded-2xl p-4">
+                            <p className="text-green-300 text-sm text-center">
+                                Tips: Skriv ut QR-koden och sätt den direkt på utrustningen.
+                            </p>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }
-
-export default QrCodeView;
