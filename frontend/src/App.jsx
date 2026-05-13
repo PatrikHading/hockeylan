@@ -6,6 +6,7 @@ import QrCodeView from "./pages/QrCodeView";
 import LoanForm from "./pages/LoanForm";
 import ThankYou from "./pages/ThankYou";
 import HomePage from "./pages/HomePage";
+import QrScannerPage from "./pages/QrScannerPage";
 
 function App() {
     return (
@@ -18,6 +19,7 @@ function App() {
                 <Route path="/loan/:serialNumber" element={<LoanForm />} />
                 <Route path="/loan/success" element={<ThankYou />} />
                 <Route path="/thank-you" element={<ThankYou />} />
+                <Route path="/scan" element={<QrScannerPage />} />
             </Route>
         </Routes>
     );
