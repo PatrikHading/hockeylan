@@ -4,8 +4,10 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.proxy.HibernateProxy;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Getter
 @Setter
@@ -16,7 +18,7 @@ import java.time.LocalDateTime;
         indexes = {
                 @Index(name = "idx_loans_equipment_id", columnList = "equipment_id"),
                 @Index(name = "idx_loans_returned", columnList = "returned"),
-                @Index(name = "idx_loans_loan_date", columnList = "loanDate")
+                @Index(name = "idx_loans_loan_date", columnList = "loan_date")
         }
 )
 public class Loan {
@@ -25,7 +27,7 @@ public class Loan {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "equipment_id", nullable = false)
     private Equipment equipment;
 
@@ -47,23 +49,111 @@ public class Loan {
     @Column(nullable = false)
     private LocalDateTime updatedDate;
 
-    public Loan(Equipment equipment, String borrowerName, String email, String phoneNumber) {
+    public Loan(
+            Equipment equipment,
+            String borrowerName,
+            String email,
+            String phoneNumber
+    ) {
         this.equipment = equipment;
-        this.borrowerName = borrowerName;
-        this.email = email;
-        this.phoneNumber = phoneNumber;
+        this.borrowerName = normalizeName(borrowerName);
+        this.email = normalizeEmail(email);
+        this.phoneNumber = normalizePhoneNumber(phoneNumber);
         this.returned = false;
     }
 
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();
-        this.loanDate = now;
+
+        if (this.loanDate == null) {
+            this.loanDate = now;
+        }
+
         this.updatedDate = now;
+
+        normalizeFields();
     }
 
     @PreUpdate
     protected void onUpdate() {
         this.updatedDate = LocalDateTime.now();
+
+        normalizeFields();
+    }
+
+    private void normalizeFields() {
+        this.borrowerName = normalizeName(this.borrowerName);
+        this.email = normalizeEmail(this.email);
+        this.phoneNumber = normalizePhoneNumber(this.phoneNumber);
+    }
+
+    private String normalizeName(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        return value.trim();
+    }
+
+    private String normalizeEmail(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        return value.trim().toLowerCase();
+    }
+
+    private String normalizePhoneNumber(String value) {
+        if (value == null) {
+            return null;
+        }
+
+        return value.trim();
+    }
+
+    @Override
+    public final boolean equals(Object object) {
+        if (this == object) {
+            return true;
+        }
+
+        if (object == null) {
+            return false;
+        }
+
+        Class<?> objectClass = object instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass()
+                : object.getClass();
+
+        Class<?> thisClass = this instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass()
+                : this.getClass();
+
+        if (thisClass != objectClass) {
+            return false;
+        }
+
+        Loan loan = (Loan) object;
+        return id != null && Objects.equals(id, loan.id);
+    }
+
+    @Override
+    public final int hashCode() {
+        return this instanceof HibernateProxy proxy
+                ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode()
+                : getClass().hashCode();
+    }
+
+    @Override
+    public String toString() {
+        return "Loan{" +
+                "id=" + id +
+                ", borrowerName='" + borrowerName + '\'' +
+                ", email='" + email + '\'' +
+                ", returned=" + returned +
+                ", loanDate=" + loanDate +
+                ", updatedDate=" + updatedDate +
+                '}';
     }
 }
