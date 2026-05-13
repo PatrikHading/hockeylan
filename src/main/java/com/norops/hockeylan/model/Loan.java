@@ -21,7 +21,7 @@ import java.util.Objects;
                 @Index(name = "idx_loans_loan_date", columnList = "loan_date")
         }
 )
-public class Loan {
+public class Loan extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -46,9 +46,6 @@ public class Loan {
     @Column(nullable = false)
     private boolean returned = false;
 
-    @Column(nullable = false)
-    private LocalDateTime updatedDate;
-
     public Loan(
             Equipment equipment,
             String borrowerName,
@@ -63,21 +60,11 @@ public class Loan {
     }
 
     @PrePersist
-    protected void onCreate() {
-        LocalDateTime now = LocalDateTime.now();
-
-        if (this.loanDate == null) {
-            this.loanDate = now;
-        }
-
-        this.updatedDate = now;
-
-        normalizeFields();
-    }
-
     @PreUpdate
-    protected void onUpdate() {
-        this.updatedDate = LocalDateTime.now();
+    protected void normalizeBeforeSave() {
+        if (this.loanDate == null) {
+            this.loanDate = LocalDateTime.now();
+        }
 
         normalizeFields();
     }
@@ -153,7 +140,8 @@ public class Loan {
                 ", email='" + email + '\'' +
                 ", returned=" + returned +
                 ", loanDate=" + loanDate +
-                ", updatedDate=" + updatedDate +
+                ", createdDate=" + getCreatedDate() +
+                ", updatedDate=" + getUpdatedDate() +
                 '}';
     }
 }

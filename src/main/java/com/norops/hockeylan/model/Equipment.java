@@ -6,7 +6,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.proxy.HibernateProxy;
 
-import java.time.LocalDateTime;
 import java.util.Objects;
 
 @Getter
@@ -20,7 +19,7 @@ import java.util.Objects;
                 @Index(name = "idx_equipment_type", columnList = "type")
         }
 )
-public class Equipment {
+public class Equipment extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -39,12 +38,6 @@ public class Equipment {
     @Column(nullable = false)
     private boolean available = true;
 
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdDate;
-
-    @Column(nullable = false)
-    private LocalDateTime updatedDate;
-
     public Equipment(EquipmentType type, String serialNumber, String description) {
         this.type = type;
         this.serialNumber = normalizeSerialNumber(serialNumber);
@@ -53,20 +46,8 @@ public class Equipment {
     }
 
     @PrePersist
-    protected void onCreate() {
-        LocalDateTime now = LocalDateTime.now();
-
-        if (this.createdDate == null) {
-            this.createdDate = now;
-        }
-
-        this.updatedDate = now;
-        normalizeFields();
-    }
-
     @PreUpdate
-    protected void onUpdate() {
-        this.updatedDate = LocalDateTime.now();
+    protected void normalizeBeforeSave() {
         normalizeFields();
     }
 
@@ -132,8 +113,8 @@ public class Equipment {
                 ", type=" + type +
                 ", serialNumber='" + serialNumber + '\'' +
                 ", available=" + available +
-                ", createdDate=" + createdDate +
-                ", updatedDate=" + updatedDate +
+                ", createdDate=" + getCreatedDate() +
+                ", updatedDate=" + getUpdatedDate() +
                 '}';
     }
 }
