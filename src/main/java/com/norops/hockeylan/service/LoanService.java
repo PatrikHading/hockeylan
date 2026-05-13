@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.util.List;
 
 @Service
@@ -28,7 +29,7 @@ public class LoanService {
         Equipment equipment = equipmentService.getEquipmentBySerialNumber(serialNumber);
 
         if (!equipment.isAvailable()) {
-            throw new IllegalStateException("Equipment is already loaned");
+            throw new BusinessRuleException("Utrustningen är redan utlånad.");
         }
 
         Loan loan = new Loan(
@@ -39,9 +40,14 @@ public class LoanService {
         );
 
         equipment.setAvailable(false);
+
         Loan savedLoan = loanRepository.save(loan);
 
-        log.info("Registered loan with id {} for equipment serial number {}", savedLoan.getId(), equipment.getSerialNumber());
+        log.info(
+                "Registered loan with id {} for equipment serial number {}",
+                savedLoan.getId(),
+                equipment.getSerialNumber()
+        );
 
         return savedLoan;
     }
@@ -54,30 +60,21 @@ public class LoanService {
     @Transactional
     public Equipment markReturned(Equipment equipment) {
         Loan activeLoan = loanRepository.findByEquipmentIdAndReturnedFalse(equipment.getId())
-                .orElseThrow(() -> new BusinessRuleException("No active loan found for equipment"));
+                .orElseThrow(() -> new BusinessRuleException("Inget aktivt lån hittades för denna utrustning."));
 
         activeLoan.setReturned(true);
         equipment.setAvailable(true);
 
         loanRepository.save(activeLoan);
+
         Equipment savedEquipment = equipmentRepository.save(equipment);
 
-        log.info("Marked loan {} as returned for equipment with serial number {}", activeLoan.getId(), equipment.getSerialNumber());
+        log.info(
+                "Marked loan {} as returned for equipment with serial number {}",
+                activeLoan.getId(),
+                equipment.getSerialNumber()
+        );
 
         return savedEquipment;
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 }
