@@ -1,10 +1,14 @@
 package com.norops.hockeylan.service;
 
 import com.norops.hockeylan.dto.EquipmentDTO;
+import com.norops.hockeylan.exception.BusinessRuleException;
+import com.norops.hockeylan.exception.DuplicateResourceException;
 import com.norops.hockeylan.exception.ResourceNotFoundException;
 import com.norops.hockeylan.model.Equipment;
 import com.norops.hockeylan.repository.EquipmentRepository;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
@@ -12,6 +16,8 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class EquipmentService {
+
+    private static final Logger log = LoggerFactory.getLogger(EquipmentService.class);
 
     private final EquipmentRepository equipmentRepository;
 
@@ -34,17 +40,22 @@ public class EquipmentService {
 
     @Transactional
     public Equipment addEquipment(EquipmentDTO equipmentDTO) {
-        if (equipmentRepository.existsBySerialNumber(equipmentDTO.getSerialNumber())) {
-            throw new IllegalStateException("Equipment already exists with serial number: " + equipmentDTO.getSerialNumber());
+        String serialNumber = equipmentDTO.getSerialNumber().trim();
+
+        if (equipmentRepository.existsBySerialNumber(serialNumber)) {
+            throw new DuplicateResourceException("Equipment already exists with serial number: " + serialNumber);
         }
 
         Equipment equipment = new Equipment(
                 equipmentDTO.getType(),
-                equipmentDTO.getSerialNumber(),
-                equipmentDTO.getDescription()
+                serialNumber,
+                normalizeBlankToNull(equipmentDTO.getDescription())
         );
 
-        return equipmentRepository.save(equipment);
+        Equipment savedEquipment = equipmentRepository.save(equipment);
+        log.info("Created equipment with id {} and serial number {}", savedEquipment.getId(), savedEquipment.getSerialNumber());
+
+        return savedEquipment;
     }
 
     @Transactional
@@ -52,7 +63,7 @@ public class EquipmentService {
         Equipment equipment = getEquipmentById(id);
 
         if (!equipment.isAvailable()) {
-            throw new IllegalStateException("Equipment is already loaned");
+            throw new BusinessRuleException("Equipment is already loaned");
         }
 
         equipment.setAvailable(false);
@@ -64,32 +75,18 @@ public class EquipmentService {
         Equipment equipment = getEquipmentById(id);
 
         if (equipment.isAvailable()) {
-            throw new IllegalStateException("Equipment is already returned");
+            throw new BusinessRuleException("Equipment is already returned");
         }
 
         equipment.setAvailable(true);
         return equipmentRepository.save(equipment);
     }
+
+    private String normalizeBlankToNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        return value.trim();
+    }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
