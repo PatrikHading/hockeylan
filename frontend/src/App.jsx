@@ -17,6 +17,7 @@ function App() {
                 <Route path="/admin/qr/:id" element={<QrCodeView />} />
                 <Route path="/loan/:serialNumber" element={<LoanForm />} />
                 <Route path="/loan/success" element={<ThankYou />} />
+                <Route path="/thank-you" element={<ThankYou />} />
             </Route>
         </Routes>
     );

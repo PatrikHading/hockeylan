@@ -82,7 +82,14 @@ export default function LoanForm() {
             setSuccessMessage("Utrustningen är nu utlånad.");
 
             setTimeout(() => {
-                navigate("/thank-you");
+                navigate("/thank-you", {
+                    state: {
+                        equipmentType: equipment.type,
+                        serialNumber: equipment.serialNumber,
+                        borrowerName: formData.borrowerName,
+                        timestamp: new Date().toISOString()
+                    }
+                });
             }, 1200);
 
         } catch (err) {
