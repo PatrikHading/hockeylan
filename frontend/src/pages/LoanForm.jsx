@@ -1,300 +1,244 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import api from "../api/api";
-import Alert from "../components/ui/Alert";
-import Badge from "../components/ui/Badge";
-import Button from "../components/ui/Button";
-import ConfirmDialog from "../components/ui/ConfirmDialog";
-import FormField from "../components/ui/FormField";
+import axios from "axios";
 
-function LoanForm() {
+export default function LoanForm() {
+
     const { serialNumber } = useParams();
     const navigate = useNavigate();
 
     const [equipment, setEquipment] = useState(null);
+
     const [formData, setFormData] = useState({
         borrowerName: "",
         email: "",
-        phoneNumber: "",
+        phoneNumber: ""
     });
 
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
-    const [confirmOpen, setConfirmOpen] = useState(false);
-    const [errorMessage, setErrorMessage] = useState("");
+
+    const [error, setError] = useState("");
+    const [successMessage, setSuccessMessage] = useState("");
 
     useEffect(() => {
-        async function fetchEquipment() {
-            try {
-                const response = await api.get(`/loan/${serialNumber}`);
-                setEquipment(response.data);
-                setErrorMessage("");
-            } catch (error) {
-                setErrorMessage("Kunde inte hitta utrustningen.");
-            } finally {
-                setLoading(false);
-            }
-        }
-
         fetchEquipment();
-    }, [serialNumber]);
+    }, []);
+
+    async function fetchEquipment() {
+
+        try {
+
+            setLoading(true);
+            setError("");
+
+            const response = await axios.get(
+                `http://localhost:8080/api/loan/${serialNumber}`
+            );
+
+            setEquipment(response.data);
+
+        } catch (err) {
+
+            console.error(err);
+
+            if (err.response?.data?.message) {
+                setError(err.response.data.message);
+            } else {
+                setError("Kunde inte hämta utrustning.");
+            }
+
+        } finally {
+            setLoading(false);
+        }
+    }
 
     function handleChange(event) {
+
         const { name, value } = event.target;
 
-        setFormData((current) => ({
-            ...current,
-            [name]: value,
+        setFormData(prev => ({
+            ...prev,
+            [name]: value
         }));
     }
 
-    function validateForm() {
-        if (!formData.borrowerName.trim()) {
-            setErrorMessage("Namn måste fyllas i.");
-            return false;
-        }
+    async function handleSubmit(event) {
 
-        if (!formData.email.trim()) {
-            setErrorMessage("E-post måste fyllas i.");
-            return false;
-        }
-
-        if (!formData.phoneNumber.trim()) {
-            setErrorMessage("Telefonnummer måste fyllas i.");
-            return false;
-        }
-
-        return true;
-    }
-
-    function handleSubmit(event) {
         event.preventDefault();
 
-        if (!validateForm()) {
-            return;
-        }
-
-        setErrorMessage("");
-        setConfirmOpen(true);
-    }
-
-    async function handleConfirmLoan() {
         try {
+
             setSubmitting(true);
-            setErrorMessage("");
+            setError("");
+            setSuccessMessage("");
 
-            await api.post(`/loan/${serialNumber}`, {
-                borrowerName: formData.borrowerName.trim(),
-                email: formData.email.trim(),
-                phoneNumber: formData.phoneNumber.trim(),
-            });
-
-            navigate("/loan/success");
-        } catch (error) {
-            setErrorMessage(
-                error.response?.data?.message || "Kunde inte registrera lånet."
+            await axios.post(
+                `http://localhost:8080/api/loan/${serialNumber}`,
+                {
+                    borrowerName: formData.borrowerName,
+                    email: formData.email,
+                    phoneNumber: formData.phoneNumber
+                }
             );
-            setConfirmOpen(false);
+
+            setSuccessMessage("Utrustningen är nu utlånad.");
+
+            setTimeout(() => {
+                navigate("/thank-you");
+            }, 1200);
+
+        } catch (err) {
+
+            console.error(err);
+
+            if (err.response?.data?.message) {
+
+                setError(err.response.data.message);
+
+            } else if (err.request) {
+
+                setError(
+                    "Kunde inte kontakta servern. Kontrollera internetanslutningen."
+                );
+
+            } else {
+
+                setError("Något gick fel. Försök igen.");
+            }
+
         } finally {
+
             setSubmitting(false);
         }
     }
 
     if (loading) {
         return (
-            <div className="mx-auto max-w-3xl space-y-6">
-                <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
-                    <div className="h-6 w-32 animate-pulse rounded-full bg-slate-100" />
-                    <div className="mt-4 h-10 w-3/4 animate-pulse rounded-xl bg-slate-100" />
-                    <div className="mt-3 h-5 w-full animate-pulse rounded-xl bg-slate-100" />
-                </section>
+            <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
+                <div className="text-center">
+                    <div className="w-12 h-12 border-4 border-slate-700 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
 
-                <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
-                    <div className="grid gap-4">
-                        <div className="h-14 animate-pulse rounded-xl bg-slate-100" />
-                        <div className="h-14 animate-pulse rounded-xl bg-slate-100" />
-                        <div className="h-14 animate-pulse rounded-xl bg-slate-100" />
-                    </div>
-                </section>
-            </div>
-        );
-    }
-
-    if (errorMessage && !equipment) {
-        return (
-            <div className="mx-auto max-w-3xl space-y-6">
-                <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
-                    <Badge variant="danger">Utrustning saknas</Badge>
-
-                    <h1 className="mt-3">Utrustning hittades inte</h1>
-
-                    <p className="mt-2">
-                        Kontrollera att QR-koden är korrekt eller kontakta ansvarig.
+                    <p className="text-slate-300">
+                        Hämtar utrustning...
                     </p>
-                </section>
-
-                <Alert title="Något gick fel" variant="danger">
-                    {errorMessage}
-                </Alert>
-            </div>
-        );
-    }
-
-    if (!equipment.available) {
-        return (
-            <div className="mx-auto max-w-3xl space-y-6">
-                <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
-                    <Badge variant="warning">Ej tillgänglig</Badge>
-
-                    <h1 className="mt-3">Utrustningen är redan utlånad</h1>
-
-                    <p className="mt-2">
-                        Denna utrustning är inte tillgänglig just nu.
-                    </p>
-                </section>
-
-                <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
-                    <h2>Utrustning</h2>
-
-                    <dl className="mt-5 grid gap-4 sm:grid-cols-3">
-                        <div className="rounded-2xl bg-slate-50 p-4">
-                            <dt className="text-sm font-bold text-slate-500">Typ</dt>
-                            <dd className="mt-1 font-semibold text-slate-900">
-                                {equipment.type}
-                            </dd>
-                        </div>
-
-                        <div className="rounded-2xl bg-slate-50 p-4">
-                            <dt className="text-sm font-bold text-slate-500">
-                                Serienummer
-                            </dt>
-                            <dd className="mt-1 font-mono font-semibold text-slate-900">
-                                {equipment.serialNumber}
-                            </dd>
-                        </div>
-
-                        <div className="rounded-2xl bg-slate-50 p-4">
-                            <dt className="text-sm font-bold text-slate-500">
-                                Beskrivning
-                            </dt>
-                            <dd className="mt-1 font-semibold text-slate-900">
-                                {equipment.description || "-"}
-                            </dd>
-                        </div>
-                    </dl>
-                </section>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="mx-auto max-w-3xl space-y-6">
-            <section className="rounded-3xl bg-blue-950 p-5 text-white shadow-sm sm:p-6">
-                <Badge variant="danger">Utlåning</Badge>
+        <div className="min-h-screen bg-slate-950 px-4 py-8">
+            <div className="max-w-xl mx-auto">
 
-                <h1 className="mt-3 text-white">Låna utrustning</h1>
+                <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
 
-                <p className="mt-2 max-w-2xl text-blue-100">
-                    Fyll i dina uppgifter för att registrera lånet.
-                </p>
-            </section>
+                    <div className="bg-gradient-to-r from-blue-600 to-cyan-600 p-6">
+                        <h1 className="text-3xl font-bold text-white mb-2">
+                            Låna utrustning
+                        </h1>
 
-            <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
-                <h2>Vald utrustning</h2>
-
-                <dl className="mt-5 grid gap-4 sm:grid-cols-3">
-                    <div className="rounded-2xl bg-slate-50 p-4">
-                        <dt className="text-sm font-bold text-slate-500">Typ</dt>
-                        <dd className="mt-1 font-semibold text-slate-900">
-                            {equipment.type}
-                        </dd>
+                        <p className="text-blue-100">
+                            Fyll i dina uppgifter
+                        </p>
                     </div>
 
-                    <div className="rounded-2xl bg-slate-50 p-4">
-                        <dt className="text-sm font-bold text-slate-500">
-                            Serienummer
-                        </dt>
-                        <dd className="mt-1 font-mono font-semibold text-slate-900">
-                            {equipment.serialNumber}
-                        </dd>
+                    <div className="p-6">
+
+                        {equipment && (
+                            <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-6">
+                                <p className="text-slate-400 text-sm mb-1">
+                                    Utrustning
+                                </p>
+
+                                <p className="text-white font-semibold text-lg">
+                                    {equipment.name}
+                                </p>
+
+                                <p className="text-slate-400 text-sm">
+                                    {equipment.serialNumber}
+                                </p>
+                            </div>
+                        )}
+
+                        {error && (
+                            <div className="bg-red-950 border border-red-800 rounded-2xl p-4 mb-6">
+                                <p className="text-red-300 font-medium">
+                                    {error}
+                                </p>
+                            </div>
+                        )}
+
+                        {successMessage && (
+                            <div className="bg-green-950 border border-green-800 rounded-2xl p-4 mb-6">
+                                <p className="text-green-300 font-medium">
+                                    {successMessage}
+                                </p>
+                            </div>
+                        )}
+
+                        <form onSubmit={handleSubmit} className="space-y-5">
+
+                            <div>
+                                <label className="block text-slate-300 mb-2">
+                                    Namn
+                                </label>
+
+                                <input
+                                    type="text"
+                                    name="borrowerName"
+                                    value={formData.borrowerName}
+                                    onChange={handleChange}
+                                    required
+                                    className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-blue-500"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-slate-300 mb-2">
+                                    E-post
+                                </label>
+
+                                <input
+                                    type="email"
+                                    name="email"
+                                    value={formData.email}
+                                    onChange={handleChange}
+                                    required
+                                    className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-blue-500"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-slate-300 mb-2">
+                                    Telefonnummer
+                                </label>
+
+                                <input
+                                    type="tel"
+                                    name="phoneNumber"
+                                    value={formData.phoneNumber}
+                                    onChange={handleChange}
+                                    required
+                                    className="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-blue-500"
+                                />
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={submitting}
+                                className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-2xl transition-all"
+                            >
+                                {submitting
+                                    ? "Registrerar lån..."
+                                    : "Låna utrustning"}
+                            </button>
+
+                        </form>
+
                     </div>
-
-                    <div className="rounded-2xl bg-slate-50 p-4">
-                        <dt className="text-sm font-bold text-slate-500">
-                            Beskrivning
-                        </dt>
-                        <dd className="mt-1 font-semibold text-slate-900">
-                            {equipment.description || "-"}
-                        </dd>
-                    </div>
-                </dl>
-            </section>
-
-            {errorMessage && (
-                <Alert title="Kunde inte registrera lån" variant="danger">
-                    {errorMessage}
-                </Alert>
-            )}
-
-            <section className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
-                <form onSubmit={handleSubmit} className="space-y-5">
-                    <FormField id="borrowerName" label="Namn" required>
-                        <input
-                            id="borrowerName"
-                            name="borrowerName"
-                            value={formData.borrowerName}
-                            onChange={handleChange}
-                            placeholder="För- och efternamn"
-                            autoComplete="name"
-                            required
-                        />
-                    </FormField>
-
-                    <FormField id="email" label="E-postadress" required>
-                        <input
-                            id="email"
-                            name="email"
-                            type="email"
-                            value={formData.email}
-                            onChange={handleChange}
-                            placeholder="namn@example.com"
-                            autoComplete="email"
-                            required
-                        />
-                    </FormField>
-
-                    <FormField id="phoneNumber" label="Telefonnummer" required>
-                        <input
-                            id="phoneNumber"
-                            name="phoneNumber"
-                            type="tel"
-                            value={formData.phoneNumber}
-                            onChange={handleChange}
-                            placeholder="0701-234 567"
-                            autoComplete="tel"
-                            required
-                        />
-                    </FormField>
-
-                    <Button type="submit" disabled={submitting} fullWidth size="lg">
-                        {submitting ? "Registrerar..." : "Registrera lån"}
-                    </Button>
-                </form>
-            </section>
-
-            <ConfirmDialog
-                open={confirmOpen}
-                title="Bekräfta lån"
-                message={`Vill du registrera lån av ${equipment.serialNumber}?`}
-                confirmText="Ja, registrera lån"
-                cancelText="Avbryt"
-                loading={submitting}
-                variant="primary"
-                onConfirm={handleConfirmLoan}
-                onCancel={() => setConfirmOpen(false)}
-            />
+                </div>
+            </div>
         </div>
     );
 }
-
-export default LoanForm;
