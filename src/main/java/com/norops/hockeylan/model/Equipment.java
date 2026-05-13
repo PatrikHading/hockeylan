@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.proxy.HibernateProxy;
+import org.hibernate.annotations.DynamicUpdate;
 
 import java.util.Objects;
 
@@ -19,6 +20,7 @@ import java.util.Objects;
                 @Index(name = "idx_equipment_type", columnList = "type")
         }
 )
+@DynamicUpdate
 public class Equipment extends BaseEntity {
 
     @Id

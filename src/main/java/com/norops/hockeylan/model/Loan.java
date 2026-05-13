@@ -5,7 +5,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.proxy.HibernateProxy;
-
+import org.hibernate.annotations.DynamicUpdate;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
@@ -21,6 +21,7 @@ import java.util.Objects;
                 @Index(name = "idx_loans_loan_date", columnList = "loan_date")
         }
 )
+@DynamicUpdate
 public class Loan extends BaseEntity {
 
     @Id
@@ -28,7 +29,11 @@ public class Loan extends BaseEntity {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "equipment_id", nullable = false)
+    @JoinColumn(
+            name = "equipment_id",
+            nullable = false,
+            foreignKey = @ForeignKey(name = "fk_loans_equipment")
+    )
     private Equipment equipment;
 
     @Column(nullable = false, length = 100)
