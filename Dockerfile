@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21-jdk AS build
+FROM eclipse-temurin:21-jdk-alpine AS build
 
 WORKDIR /app
 
@@ -7,18 +7,26 @@ COPY .mvn .mvn
 COPY pom.xml .
 
 RUN chmod +x mvnw
-RUN ./mvnw dependency:go-offline
+RUN ./mvnw dependency:go-offline -B
 
 COPY src src
 
-RUN ./mvnw clean package -DskipTests
+RUN ./mvnw clean package -DskipTests -B
 
 
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
+RUN apk add --no-cache curl \
+    && addgroup -S hockeylan \
+    && adduser -S hockeylan -G hockeylan
+
 COPY --from=build /app/target/*.jar app.jar
+
+RUN chown -R hockeylan:hockeylan /app
+
+USER hockeylan
 
 EXPOSE 8080
 

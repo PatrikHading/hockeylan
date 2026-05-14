@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "${SERVER_PORT:-8080}:8080"
+      - "${BACKEND_PORT:-8080}:8080"
     environment:
       SERVER_PORT: 8080
       DB_HOST: ${DB_HOST}
@@ -15,13 +15,14 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       FRONTEND_URL: ${FRONTEND_URL}
       QR_BASE_URL: ${QR_BASE_URL}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-}
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/admin/equipment || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/api/equipment/types || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 40s
-    restart: unless-stopped
+      start_period: 45s
 
   hockeylan-frontend:
     container_name: hockeylan-frontend
@@ -31,8 +32,14 @@ services:
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL}
     ports:
-      - "5173:80"
+      - "${FRONTEND_PORT:-5173}:80"
     depends_on:
       hockeylan-backend:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
