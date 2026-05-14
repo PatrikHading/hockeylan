@@ -1,9 +1,11 @@
 package com.norops.hockeylan.service;
 
 import com.norops.hockeylan.dto.EquipmentDTO;
+import com.norops.hockeylan.exception.DuplicateResourceException;
 import com.norops.hockeylan.exception.ResourceNotFoundException;
 import com.norops.hockeylan.model.Equipment;
 import com.norops.hockeylan.repository.EquipmentRepository;
+import com.norops.hockeylan.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,25 +32,26 @@ public class EquipmentService {
 
     @Transactional(readOnly = true)
     public Equipment getEquipmentBySerialNumber(String serialNumber) {
-        String normalizedSerialNumber = normalizeSerialNumber(serialNumber);
+        String sanitizedSerialNumber = sanitizeSerialNumber(serialNumber);
 
-        return equipmentRepository.findBySerialNumberIgnoreCase(normalizedSerialNumber)
+        return equipmentRepository.findBySerialNumberIgnoreCase(sanitizedSerialNumber)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Equipment not found with serial number: " + normalizedSerialNumber
+                        "Equipment not found with serial number: " + sanitizedSerialNumber
                 ));
     }
 
     public Equipment addEquipment(EquipmentDTO equipmentDTO) {
-        String normalizedSerialNumber = normalizeSerialNumber(equipmentDTO.getSerialNumber());
+        String sanitizedSerialNumber = sanitizeSerialNumber(equipmentDTO.getSerialNumber());
+        String sanitizedDescription = InputSanitizer.cleanText(equipmentDTO.getDescription());
 
-        if (equipmentRepository.existsBySerialNumberIgnoreCase(normalizedSerialNumber)) {
-            throw new IllegalArgumentException("Equipment with serial number already exists: " + normalizedSerialNumber);
+        if (equipmentRepository.existsBySerialNumberIgnoreCase(sanitizedSerialNumber)) {
+            throw new DuplicateResourceException("Equipment with serial number already exists: " + sanitizedSerialNumber);
         }
 
         Equipment equipment = new Equipment(
                 equipmentDTO.getType(),
-                normalizedSerialNumber,
-                equipmentDTO.getDescription()
+                sanitizedSerialNumber,
+                sanitizedDescription
         );
 
         return equipmentRepository.save(equipment);
@@ -65,11 +68,13 @@ public class EquipmentService {
         equipmentRepository.delete(equipment);
     }
 
-    private String normalizeSerialNumber(String serialNumber) {
-        if (serialNumber == null || serialNumber.isBlank()) {
+    private String sanitizeSerialNumber(String serialNumber) {
+        String sanitizedSerialNumber = InputSanitizer.cleanSerialNumber(serialNumber);
+
+        if (sanitizedSerialNumber == null || sanitizedSerialNumber.isBlank()) {
             throw new IllegalArgumentException("Serial number must not be blank");
         }
 
-        return serialNumber.trim().toUpperCase();
+        return sanitizedSerialNumber;
     }
 }

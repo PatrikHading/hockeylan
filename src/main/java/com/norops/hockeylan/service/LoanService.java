@@ -6,6 +6,7 @@ import com.norops.hockeylan.model.Equipment;
 import com.norops.hockeylan.model.Loan;
 import com.norops.hockeylan.repository.EquipmentRepository;
 import com.norops.hockeylan.repository.LoanRepository;
+import com.norops.hockeylan.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,9 +41,9 @@ public class LoanService {
 
         Loan loan = new Loan(
                 equipment,
-                loanFormDTO.getBorrowerName(),
-                loanFormDTO.getEmail(),
-                loanFormDTO.getPhoneNumber()
+                InputSanitizer.cleanText(loanFormDTO.getBorrowerName()),
+                InputSanitizer.cleanEmail(loanFormDTO.getEmail()),
+                InputSanitizer.cleanPhoneNumber(loanFormDTO.getPhoneNumber())
         );
 
         equipment.setAvailable(false);
