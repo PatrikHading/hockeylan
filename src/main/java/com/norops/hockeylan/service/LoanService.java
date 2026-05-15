@@ -2,6 +2,7 @@ package com.norops.hockeylan.service;
 
 import com.norops.hockeylan.dto.LoanFormDTO;
 import com.norops.hockeylan.exception.BusinessRuleException;
+import com.norops.hockeylan.exception.ResourceNotFoundException;
 import com.norops.hockeylan.model.Equipment;
 import com.norops.hockeylan.model.Loan;
 import com.norops.hockeylan.repository.EquipmentRepository;
@@ -24,18 +25,23 @@ public class LoanService {
 
     private final LoanRepository loanRepository;
     private final EquipmentRepository equipmentRepository;
-    private final EquipmentService equipmentService;
 
     public Loan registerLoan(String serialNumber, LoanFormDTO loanFormDTO) {
         validateLoanForm(loanFormDTO);
 
-        Equipment equipment = equipmentService.getEquipmentBySerialNumber(serialNumber);
+        String sanitizedSerialNumber = InputSanitizer.cleanSerialNumber(serialNumber);
+
+        Equipment equipment = equipmentRepository
+                .findBySerialNumberIgnoreCaseForUpdate(sanitizedSerialNumber)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Equipment not found with serial number: " + sanitizedSerialNumber
+                ));
 
         if (!equipment.isAvailable()) {
             throw new BusinessRuleException("Utrustningen är redan utlånad.");
         }
 
-        if (loanRepository.findByEquipmentIdAndReturnedFalse(equipment.getId()).isPresent()) {
+        if (loanRepository.existsByEquipmentAndReturnedFalse(equipment)) {
             throw new BusinessRuleException("Utrustningen har redan ett aktivt lån.");
         }
 
@@ -65,7 +71,6 @@ public class LoanService {
         return loanRepository.findByReturnedFalse();
     }
 
-    @Transactional
     public Equipment markReturned(Equipment equipment) {
         Loan activeLoan = loanRepository.findByEquipmentIdAndReturnedFalse(equipment.getId())
                 .orElseThrow(() -> new BusinessRuleException("Inget aktivt lån hittades för denna utrustning."));
