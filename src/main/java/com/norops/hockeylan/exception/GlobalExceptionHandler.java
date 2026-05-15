@@ -29,7 +29,7 @@ public class GlobalExceptionHandler {
         return buildResponse(
                 HttpStatus.NOT_FOUND,
                 "Not Found",
-                ex.getMessage(),
+                "Requested resource was not found.",
                 request
         );
     }
@@ -42,7 +42,7 @@ public class GlobalExceptionHandler {
         return buildResponse(
                 HttpStatus.CONFLICT,
                 "Conflict",
-                ex.getMessage(),
+                "Resource already exists.",
                 request
         );
     }
@@ -71,7 +71,7 @@ public class GlobalExceptionHandler {
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
                 "Bad Request",
-                ex.getMessage(),
+                "Request could not be processed.",
                 request
         );
     }
@@ -103,7 +103,7 @@ public class GlobalExceptionHandler {
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
                 "Constraint Violation",
-                ex.getMessage(),
+                "One or more request parameters are invalid.",
                 request
         );
     }
