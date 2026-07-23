@@ -26,7 +26,7 @@ describe('LoanForm', () => {
         vi.clearAllMocks()
     })
 
-    test('renders loading state first', () => {
+    test('renders loading state first', async () => {
         api.get.mockResolvedValueOnce({
             data: {
                 id: 1,
@@ -40,6 +40,9 @@ describe('LoanForm', () => {
         renderLoanForm()
 
         expect(screen.getByText(/hämtar utrustning/i)).toBeInTheDocument()
+        expect(
+            await screen.findByRole('heading', { name: /låna utrustning/i })
+        ).toBeInTheDocument()
     })
 
     test('renders loan form when equipment is available', async () => {

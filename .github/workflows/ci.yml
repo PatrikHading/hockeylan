@@ -33,7 +33,7 @@ jobs:
         run: ./mvnw clean verify
 
   frontend:
-    name: Frontend build
+    name: Frontend build and test
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -55,6 +55,9 @@ jobs:
 
       - name: Lint frontend
         run: npm run lint
+
+      - name: Test frontend
+        run: npm run test:run
 
       - name: Build frontend
         run: npm run build

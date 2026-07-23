@@ -186,11 +186,15 @@ export default function LoanForm() {
 
                         <form onSubmit={handleSubmit} className="space-y-5">
                             <div>
-                                <label className="mb-2 block text-slate-300">
+                                <label
+                                    htmlFor="borrowerName"
+                                    className="mb-2 block text-slate-300"
+                                >
                                     Namn
                                 </label>
 
                                 <input
+                                    id="borrowerName"
                                     type="text"
                                     name="borrowerName"
                                     value={formData.borrowerName}
@@ -202,11 +206,15 @@ export default function LoanForm() {
                             </div>
 
                             <div>
-                                <label className="mb-2 block text-slate-300">
+                                <label
+                                    htmlFor="email"
+                                    className="mb-2 block text-slate-300"
+                                >
                                     E-post
                                 </label>
 
                                 <input
+                                    id="email"
                                     type="email"
                                     name="email"
                                     value={formData.email}
@@ -218,11 +226,15 @@ export default function LoanForm() {
                             </div>
 
                             <div>
-                                <label className="mb-2 block text-slate-300">
+                                <label
+                                    htmlFor="phoneNumber"
+                                    className="mb-2 block text-slate-300"
+                                >
                                     Telefonnummer
                                 </label>
 
                                 <input
+                                    id="phoneNumber"
                                     type="tel"
                                     name="phoneNumber"
                                     value={formData.phoneNumber}

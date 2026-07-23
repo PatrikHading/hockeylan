@@ -50,8 +50,8 @@ describe('AdminPage', () => {
 
         renderAdminPage()
 
-        expect(await screen.findByText('HELMET-001')).toBeInTheDocument()
-        expect(screen.getByText('Bauer hjälm')).toBeInTheDocument()
+        expect(await screen.findAllByText('HELMET-001')).toHaveLength(2)
+        expect(screen.getAllByText('Bauer hjälm')).toHaveLength(2)
         expect(screen.getAllByText(/tillgänglig/i).length).toBeGreaterThan(0)
     })
 
