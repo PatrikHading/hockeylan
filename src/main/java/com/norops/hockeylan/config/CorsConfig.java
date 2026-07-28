@@ -4,48 +4,43 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.web.filter.CorsFilter;
 
 import java.util.List;
 
 @Configuration
 public class CorsConfig {
 
-    @Value("${app.cors.allowed-origin}")
-    private String allowedOrigin;
-
     @Bean
-    public CorsFilter corsFilter() {
-        CorsConfiguration config = new CorsConfiguration();
+    public CorsConfigurationSource corsConfigurationSource(
+            @Value("${app.cors.allowed-origin}") String allowedOrigin
+    ) {
+        CorsConfiguration configuration = new CorsConfiguration();
 
-        config.setAllowedOrigins(List.of(allowedOrigin));
-
-        config.setAllowedMethods(List.of(
+        configuration.setAllowedOrigins(List.of(allowedOrigin));
+        configuration.setAllowedMethods(List.of(
                 "GET",
                 "POST",
                 "PUT",
                 "DELETE",
                 "OPTIONS"
         ));
-
-        config.setAllowedHeaders(List.of(
+        configuration.setAllowedHeaders(List.of(
                 "Content-Type",
                 "Accept",
                 "Origin",
-                "Authorization"
+                "X-XSRF-TOKEN"
         ));
-
-        config.setExposedHeaders(List.of("Location"));
-
-        config.setAllowCredentials(false);
-        config.setMaxAge(3600L);
+        configuration.setExposedHeaders(List.of("Location"));
+        configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
 
-        source.registerCorsConfiguration("/api/**", config);
+        source.registerCorsConfiguration("/api/**", configuration);
 
-        return new CorsFilter(source);
+        return source;
     }
 }

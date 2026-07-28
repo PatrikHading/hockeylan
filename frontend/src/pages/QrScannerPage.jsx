@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Html5QrcodeScanner } from "html5-qrcode";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 
 export default function QrScannerPage() {
 

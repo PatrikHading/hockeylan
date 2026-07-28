@@ -36,10 +36,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 class HockeylanApplicationTests {
 
 	private static final Set<String> EXPECTED_MIGRATION_VERSIONS =
-			Set.of("0", "1", "2", "3", "4", "5");
+			Set.of("0", "1", "2", "3", "4", "5", "6");
 
 	private static final Set<String> EXPECTED_TABLES =
-			Set.of("equipment", "loans");
+			Set.of("equipment", "loans", "admins");
 
 	private static final Set<String> EXPECTED_CONSTRAINTS = Set.of(
 			"equipment_pkey",
@@ -50,7 +50,10 @@ class HockeylanApplicationTests {
 			"chk_equipment_type_not_blank",
 			"chk_loans_borrower_name_not_blank",
 			"chk_loans_email_not_blank",
-			"chk_loans_phone_number_not_blank"
+			"chk_loans_phone_number_not_blank",
+			"admins_pkey",
+			"chk_admins_username_not_blank",
+			"chk_admins_password_hash_not_blank"
 	);
 
 	private static final Set<String> EXPECTED_INDEXES = Set.of(
@@ -60,7 +63,8 @@ class HockeylanApplicationTests {
 			"idx_loans_equipment_id",
 			"idx_loans_returned",
 			"idx_loans_loan_date",
-			"ux_loans_one_active_loan_per_equipment"
+			"ux_loans_one_active_loan_per_equipment",
+			"ux_admins_username_lower"
 	);
 
 	@Container
@@ -175,7 +179,11 @@ class HockeylanApplicationTests {
                         FROM information_schema.tables
                         WHERE table_schema = 'public'
                           AND table_type = 'BASE TABLE'
-                          AND table_name IN ('equipment', 'loans')
+                          AND table_name IN (
+                              'equipment',
+                              'loans',
+                              'admins'
+                          )
                         """,
 						String.class
 				)
@@ -193,7 +201,11 @@ class HockeylanApplicationTests {
                         SELECT constraint_name
                         FROM information_schema.table_constraints
                         WHERE table_schema = 'public'
-                          AND table_name IN ('equipment', 'loans')
+                          AND table_name IN (
+                              'equipment',
+                              'loans',
+                              'admins'
+                          )
                         """,
 						String.class
 				)
@@ -211,7 +223,11 @@ class HockeylanApplicationTests {
                         SELECT indexname
                         FROM pg_indexes
                         WHERE schemaname = 'public'
-                          AND tablename IN ('equipment', 'loans')
+                          AND tablename IN (
+                              'equipment',
+                              'loans',
+                              'admins'
+                          )
                         """,
 						String.class
 				)

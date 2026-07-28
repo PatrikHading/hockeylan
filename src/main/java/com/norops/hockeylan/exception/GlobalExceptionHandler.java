@@ -11,6 +11,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.security.core.AuthenticationException;
 
 import java.time.LocalDateTime;
 import java.util.stream.Collectors;
@@ -132,6 +133,19 @@ public class GlobalExceptionHandler {
                 HttpStatus.CONFLICT,
                 "Conflict",
                 "Request conflicts with existing data.",
+                request
+        );
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ApiErrorResponse> handleAuthenticationFailure(
+            AuthenticationException ex,
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.UNAUTHORIZED,
+                "Unauthorized",
+                "Invalid username or password.",
                 request
         );
     }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router";
 import api from "../api/api";
 import Alert from "../components/ui/Alert";
 import Badge from "../components/ui/Badge";
