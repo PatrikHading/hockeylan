@@ -34,17 +34,26 @@ import java.util.Locale;
 public class LoanService {
 
     private static final Logger log =
-            LoggerFactory.getLogger(LoanService.class);
+            LoggerFactory.getLogger(
+                    LoanService.class
+            );
 
-    private static final int MAX_PAGE_SIZE = 100;
+    private static final int
+            MAX_PAGE_SIZE = 100;
 
-    private static final Sort HISTORY_SORT = Sort.by(
-            Sort.Order.desc("loanDate"),
-            Sort.Order.desc("id")
-    );
+    private static final Sort HISTORY_SORT =
+            Sort.by(
+                    Sort.Order.desc(
+                            "loanDate"
+                    ),
+                    Sort.Order.desc("id")
+            );
 
-    private final LoanRepository loanRepository;
-    private final EquipmentRepository equipmentRepository;
+    private final LoanRepository
+            loanRepository;
+
+    private final EquipmentRepository
+            equipmentRepository;
 
     public Loan registerLoan(
             String serialNumber,
@@ -53,18 +62,29 @@ public class LoanService {
         validateLoanForm(loanFormDTO);
 
         String sanitizedSerialNumber =
-                InputSanitizer.cleanSerialNumber(serialNumber);
+                InputSanitizer
+                        .cleanSerialNumber(
+                                serialNumber
+                        );
 
-        Equipment equipment = equipmentRepository
-                .findBySerialNumberIgnoreCaseForUpdate(
-                        sanitizedSerialNumber
-                )
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Equipment not found with serial number: "
-                                        + sanitizedSerialNumber
+        Equipment equipment =
+                equipmentRepository
+                        .findBySerialNumberIgnoreCaseForUpdate(
+                                sanitizedSerialNumber
                         )
-                );
+                        .orElseThrow(
+                                () ->
+                                        new ResourceNotFoundException(
+                                                "Equipment not found with serial number: "
+                                                        + sanitizedSerialNumber
+                                        )
+                        );
+
+        if (!equipment.isActive()) {
+            throw new BusinessRuleException(
+                    "Utrustningen är inaktiverad och kan inte lånas."
+            );
+        }
 
         if (!equipment.isAvailable()) {
             throw new BusinessRuleException(
@@ -72,8 +92,12 @@ public class LoanService {
             );
         }
 
-        if (loanRepository
-                .existsByEquipmentAndReturnedFalse(equipment)) {
+        if (
+                loanRepository
+                        .existsByEquipmentAndReturnedFalse(
+                                equipment
+                        )
+        ) {
             throw new BusinessRuleException(
                     "Utrustningen har redan ett aktivt lån."
             );
@@ -82,20 +106,27 @@ public class LoanService {
         Loan loan = new Loan(
                 equipment,
                 InputSanitizer.cleanText(
-                        loanFormDTO.getBorrowerName()
+                        loanFormDTO
+                                .getBorrowerName()
                 ),
                 InputSanitizer.cleanEmail(
                         loanFormDTO.getEmail()
                 ),
-                InputSanitizer.cleanPhoneNumber(
-                        loanFormDTO.getPhoneNumber()
-                )
+                InputSanitizer
+                        .cleanPhoneNumber(
+                                loanFormDTO
+                                        .getPhoneNumber()
+                        )
         );
 
         equipment.setAvailable(false);
 
-        Loan savedLoan = loanRepository.save(loan);
-        equipmentRepository.save(equipment);
+        Loan savedLoan =
+                loanRepository.save(loan);
+
+        equipmentRepository.save(
+                equipment
+        );
 
         log.info(
                 "Registered loan with id {} for equipment serial number {}",
@@ -137,7 +168,9 @@ public class LoanService {
         LocalDateTime toExclusive =
                 to == null
                         ? null
-                        : to.plusDays(1).atStartOfDay();
+                        : to
+                        .plusDays(1)
+                        .atStartOfDay();
 
         String normalizedSerialNumber =
                 normalizeSerialNumberFilter(
@@ -145,7 +178,9 @@ public class LoanService {
                 );
 
         String normalizedBorrower =
-                normalizeBorrowerFilter(borrower);
+                normalizeBorrowerFilter(
+                        borrower
+                );
 
         Specification<Loan> specification =
                 buildHistorySpecification(
@@ -157,11 +192,12 @@ public class LoanService {
                         normalizedBorrower
                 );
 
-        PageRequest pageRequest = PageRequest.of(
-                page,
-                size,
-                HISTORY_SORT
-        );
+        PageRequest pageRequest =
+                PageRequest.of(
+                        page,
+                        size,
+                        HISTORY_SORT
+                );
 
         return loanRepository.findAll(
                 specification,
@@ -169,15 +205,21 @@ public class LoanService {
         );
     }
 
-    public Loan markReturned(Long loanId) {
-        Loan loan = loanRepository
-                .findByIdForUpdate(loanId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Loan not found with id: "
-                                        + loanId
+    public Loan markReturned(
+            Long loanId
+    ) {
+        Loan loan =
+                loanRepository
+                        .findByIdForUpdate(
+                                loanId
                         )
-                );
+                        .orElseThrow(
+                                () ->
+                                        new ResourceNotFoundException(
+                                                "Loan not found with id: "
+                                                        + loanId
+                                        )
+                        );
 
         if (loan.isReturned()) {
             throw new BusinessRuleException(
@@ -185,23 +227,37 @@ public class LoanService {
             );
         }
 
-        Equipment equipment = equipmentRepository
-                .findByIdForUpdate(
-                        loan.getEquipment().getId()
-                )
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Equipment not found with id: "
-                                        + loan.getEquipment().getId()
+        Equipment equipment =
+                equipmentRepository
+                        .findByIdForUpdate(
+                                loan
+                                        .getEquipment()
+                                        .getId()
                         )
-                );
+                        .orElseThrow(
+                                () ->
+                                        new ResourceNotFoundException(
+                                                "Equipment not found with id: "
+                                                        + loan
+                                                        .getEquipment()
+                                                        .getId()
+                                        )
+                        );
 
         loan.setEquipment(equipment);
-        loan.registerReturn(LocalDateTime.now());
+
+        loan.registerReturn(
+                LocalDateTime.now()
+        );
+
         equipment.setAvailable(true);
 
-        Loan savedLoan = loanRepository.save(loan);
-        equipmentRepository.save(equipment);
+        Loan savedLoan =
+                loanRepository.save(loan);
+
+        equipmentRepository.save(
+                equipment
+        );
 
         log.info(
                 "Marked loan {} as returned at {} for equipment {}",
@@ -213,7 +269,8 @@ public class LoanService {
         return savedLoan;
     }
 
-    private Specification<Loan> buildHistorySpecification(
+    private Specification<Loan>
+    buildHistorySpecification(
             LoanHistoryStatus status,
             LocalDateTime fromInclusive,
             LocalDateTime toExclusive,
@@ -221,11 +278,19 @@ public class LoanService {
             EquipmentType equipmentType,
             String borrower
     ) {
-        return (root, query, criteriaBuilder) -> {
-            if (!Long.class.equals(query.getResultType())
-                    && !long.class.equals(
-                    query.getResultType()
-            )) {
+        return (
+                root,
+                query,
+                criteriaBuilder
+        ) -> {
+            if (
+                    !Long.class.equals(
+                            query.getResultType()
+                    )
+                            && !long.class.equals(
+                            query.getResultType()
+                    )
+            ) {
                 root.fetch(
                         "equipment",
                         JoinType.INNER
@@ -243,7 +308,9 @@ public class LoanService {
             if (returnedValue != null) {
                 predicates.add(
                         criteriaBuilder.equal(
-                                root.get("returned"),
+                                root.get(
+                                        "returned"
+                                ),
                                 returnedValue
                         )
                 );
@@ -251,17 +318,22 @@ public class LoanService {
 
             if (fromInclusive != null) {
                 predicates.add(
-                        criteriaBuilder.greaterThanOrEqualTo(
-                                root.get("loanDate"),
-                                fromInclusive
-                        )
+                        criteriaBuilder
+                                .greaterThanOrEqualTo(
+                                        root.get(
+                                                "loanDate"
+                                        ),
+                                        fromInclusive
+                                )
                 );
             }
 
             if (toExclusive != null) {
                 predicates.add(
                         criteriaBuilder.lessThan(
-                                root.get("loanDate"),
+                                root.get(
+                                        "loanDate"
+                                ),
                                 toExclusive
                         )
                 );
@@ -271,8 +343,12 @@ public class LoanService {
                 predicates.add(
                         criteriaBuilder.equal(
                                 criteriaBuilder.lower(
-                                        root.get("equipment")
-                                                .get("serialNumber")
+                                        root.get(
+                                                        "equipment"
+                                                )
+                                                .get(
+                                                        "serialNumber"
+                                                )
                                 ),
                                 serialNumber
                         )
@@ -282,7 +358,9 @@ public class LoanService {
             if (equipmentType != null) {
                 predicates.add(
                         criteriaBuilder.equal(
-                                root.get("equipment")
+                                root.get(
+                                                "equipment"
+                                        )
                                         .get("type"),
                                 equipmentType
                         )
@@ -293,7 +371,9 @@ public class LoanService {
                 predicates.add(
                         criteriaBuilder.like(
                                 criteriaBuilder.lower(
-                                        root.get("borrowerName")
+                                        root.get(
+                                                "borrowerName"
+                                        )
                                 ),
                                 "%"
                                         + escapeLikePattern(
@@ -313,7 +393,8 @@ public class LoanService {
         };
     }
 
-    private void validatePaginationAndDateInterval(
+    private void
+    validatePaginationAndDateInterval(
             LocalDate from,
             LocalDate to,
             int page,
@@ -325,42 +406,58 @@ public class LoanService {
             );
         }
 
-        if (size < 1 || size > MAX_PAGE_SIZE) {
+        if (
+                size < 1
+                        || size
+                        > MAX_PAGE_SIZE
+        ) {
             throw new IllegalArgumentException(
                     "Page size must be between 1 and "
-                            + MAX_PAGE_SIZE + "."
+                            + MAX_PAGE_SIZE
+                            + "."
             );
         }
 
-        if (from != null
-                && to != null
-                && from.isAfter(to)) {
+        if (
+                from != null
+                        && to != null
+                        && from.isAfter(to)
+        ) {
             throw new IllegalArgumentException(
                     "From date must not be after to date."
             );
         }
     }
 
-    private String normalizeSerialNumberFilter(
+    private String
+    normalizeSerialNumberFilter(
             String serialNumber
     ) {
         String normalized =
-                normalizeOptional(serialNumber);
+                normalizeOptional(
+                        serialNumber
+                );
 
         if (normalized == null) {
             return null;
         }
 
         return InputSanitizer
-                .cleanSerialNumber(normalized)
-                .toLowerCase(Locale.ROOT);
+                .cleanSerialNumber(
+                        normalized
+                )
+                .toLowerCase(
+                        Locale.ROOT
+                );
     }
 
     private String normalizeBorrowerFilter(
             String borrower
     ) {
         String normalized =
-                normalizeOptional(borrower);
+                normalizeOptional(
+                        borrower
+                );
 
         if (normalized == null) {
             return null;
@@ -368,18 +465,27 @@ public class LoanService {
 
         return InputSanitizer
                 .cleanText(normalized)
-                .toLowerCase(Locale.ROOT);
+                .toLowerCase(
+                        Locale.ROOT
+                );
     }
 
-    private String normalizeOptional(String value) {
-        if (value == null || value.isBlank()) {
+    private String normalizeOptional(
+            String value
+    ) {
+        if (
+                value == null
+                        || value.isBlank()
+        ) {
             return null;
         }
 
         return value.trim();
     }
 
-    private String escapeLikePattern(String value) {
+    private String escapeLikePattern(
+            String value
+    ) {
         return value
                 .replace("\\", "\\\\")
                 .replace("%", "\\%")
@@ -395,28 +501,39 @@ public class LoanService {
             );
         }
 
-        if (loanFormDTO.getBorrowerName() == null
-                || loanFormDTO
-                .getBorrowerName()
-                .isBlank()) {
+        if (
+                loanFormDTO
+                        .getBorrowerName()
+                        == null
+                        || loanFormDTO
+                        .getBorrowerName()
+                        .isBlank()
+        ) {
             throw new BusinessRuleException(
                     "Namn måste anges."
             );
         }
 
-        if (loanFormDTO.getEmail() == null
-                || loanFormDTO
-                .getEmail()
-                .isBlank()) {
+        if (
+                loanFormDTO.getEmail()
+                        == null
+                        || loanFormDTO
+                        .getEmail()
+                        .isBlank()
+        ) {
             throw new BusinessRuleException(
                     "E-post måste anges."
             );
         }
 
-        if (loanFormDTO.getPhoneNumber() == null
-                || loanFormDTO
-                .getPhoneNumber()
-                .isBlank()) {
+        if (
+                loanFormDTO
+                        .getPhoneNumber()
+                        == null
+                        || loanFormDTO
+                        .getPhoneNumber()
+                        .isBlank()
+        ) {
             throw new BusinessRuleException(
                     "Telefonnummer måste anges."
             );

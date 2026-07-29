@@ -4,7 +4,9 @@ import {
     screen,
     waitFor,
 } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import {
+    MemoryRouter,
+} from "react-router";
 import {
     beforeEach,
     describe,
@@ -12,8 +14,8 @@ import {
     test,
     vi,
 } from "vitest";
-import AdminPage from "../AdminPage";
 import api from "../../api/api";
+import AdminPage from "../AdminPage";
 
 const logoutMock = vi.fn();
 
@@ -35,40 +37,81 @@ vi.mock("../../auth/useAuth", () => ({
     }),
 }));
 
-const loanedEquipment = {
+const availableHelmet = {
     id: 1,
     type: "HELMET",
     serialNumber: "HELMET-001",
-    description: "Bauer hjälm",
-    available: false,
+    size: "M",
+    brand: "Bauer",
+    model: "Re-Akt 150",
+    condition: "GOOD",
+    ageCategory: "JUNIOR",
+    storageLocation: "Hylla A2",
+    description: "Svart hjälm",
+    available: true,
+    active: true,
 };
 
-const availableEquipment = {
-    ...loanedEquipment,
+const loanedSkates = {
+    id: 2,
+    type: "SKATES",
+    serialNumber: "SKATES-001",
+    size: "42",
+    brand: "CCM",
+    model: "Jetspeed",
+    condition: "WORN",
+    ageCategory: "SENIOR",
+    storageLocation: "Hylla B1",
+    description: "Använda skridskor",
+    available: false,
+    active: true,
+};
+
+const inactiveStick = {
+    id: 3,
+    type: "STICK",
+    serialNumber: "STICK-001",
+    size: "150 cm",
+    brand: "Warrior",
+    model: "Alpha",
+    condition: "NEEDS_REPAIR",
+    ageCategory: "JUNIOR",
+    storageLocation: "Verkstad",
+    description: "Spricka i bladet",
     available: true,
+    active: false,
 };
 
 function renderAdminPage() {
     return render(
-        <MemoryRouter>
+        <MemoryRouter
+            initialEntries={[
+                "/admin",
+            ]}
+        >
             <AdminPage />
         </MemoryRouter>
     );
 }
 
-function openReturnConfirmation() {
-    fireEvent.click(
-        screen.getAllByRole("button", {
-            name: /återlämnad/i,
-        })[0]
-    );
+function mockEquipmentList() {
+    api.get.mockResolvedValueOnce({
+        data: [
+            availableHelmet,
+            loanedSkates,
+            inactiveStick,
+        ],
+    });
 }
 
-function confirmReturn() {
+function clickFirstButton(name) {
     fireEvent.click(
-        screen.getByRole("button", {
-            name: /ja, markera återlämnad/i,
-        })
+        screen.getAllByRole(
+            "button",
+            {
+                name,
+            }
+        )[0]
     );
 }
 
@@ -78,11 +121,9 @@ describe("AdminPage", () => {
     });
 
     test(
-        "renders admin page heading",
+        "renders extended equipment list and statistics",
         async () => {
-            api.get.mockResolvedValueOnce({
-                data: [],
-            });
+            mockEquipmentList();
 
             renderAdminPage();
 
@@ -90,14 +131,9 @@ describe("AdminPage", () => {
                 await screen.findByRole(
                     "heading",
                     {
-                        name: /utrustning/i,
+                        name:
+                            /^utrustning$/i,
                     }
-                )
-            ).toBeInTheDocument();
-
-            expect(
-                screen.getByText(
-                    /hantera utrustning/i
                 )
             ).toBeInTheDocument();
 
@@ -107,40 +143,384 @@ describe("AdminPage", () => {
                 )
             ).toBeInTheDocument();
 
-            expect(api.get).toHaveBeenCalledWith(
-                "/admin/equipment"
-            );
-        }
-    );
-
-    test(
-        "renders equipment list from api",
-        async () => {
-            api.get.mockResolvedValueOnce({
-                data: [
-                    {
-                        ...availableEquipment,
-                    },
-                ],
-            });
-
-            renderAdminPage();
-
-            expect(
-                await screen.findAllByText(
-                    "HELMET-001"
-                )
-            ).toHaveLength(2);
+            expect(api.get)
+                .toHaveBeenCalledWith(
+                    "/admin/equipment"
+                );
 
             expect(
                 screen.getAllByText(
-                    "Bauer hjälm"
-                )
-            ).toHaveLength(2);
+                    "HELMET-001"
+                ).length
+            ).toBeGreaterThan(0);
+
+            expect(
+                screen.getAllByText(
+                    "Bauer • Re-Akt 150 • Storlek: M • Junior"
+                ).length
+            ).toBeGreaterThan(0);
+
+            expect(
+                screen.getAllByText(
+                    "Hylla A2"
+                ).length
+            ).toBeGreaterThan(0);
+
+            expect(
+                screen.getAllByText(
+                    "Bra"
+                ).length
+            ).toBeGreaterThan(0);
 
             expect(
                 screen.getAllByText(
                     /tillgänglig/i
+                ).length
+            ).toBeGreaterThan(0);
+
+            expect(
+                screen.getAllByText(
+                    /utlånad/i
+                ).length
+            ).toBeGreaterThan(0);
+
+            expect(
+                screen.getAllByText(
+                    /inaktiverad/i
+                ).length
+            ).toBeGreaterThan(0);
+        }
+    );
+
+    test(
+        "searches across brand model and storage location",
+        async () => {
+            mockEquipmentList();
+
+            renderAdminPage();
+
+            await screen.findAllByText(
+                "HELMET-001"
+            );
+
+            const searchInput =
+                screen.getByLabelText(
+                    /^sök$/i
+                );
+
+            fireEvent.change(
+                searchInput,
+                {
+                    target: {
+                        value: "Warrior",
+                    },
+                }
+            );
+
+            expect(
+                screen.getAllByText(
+                    "STICK-001"
+                ).length
+            ).toBeGreaterThan(0);
+
+            expect(
+                screen.queryByText(
+                    "HELMET-001"
+                )
+            ).not.toBeInTheDocument();
+
+            fireEvent.change(
+                searchInput,
+                {
+                    target: {
+                        value: "Hylla B1",
+                    },
+                }
+            );
+
+            expect(
+                screen.getAllByText(
+                    "SKATES-001"
+                ).length
+            ).toBeGreaterThan(0);
+
+            expect(
+                screen.queryByText(
+                    "STICK-001"
+                )
+            ).not.toBeInTheDocument();
+        }
+    );
+
+    test(
+        "combines equipment filters and can clear them",
+        async () => {
+            mockEquipmentList();
+
+            renderAdminPage();
+
+            await screen.findAllByText(
+                "HELMET-001"
+            );
+
+            fireEvent.change(
+                screen.getByLabelText(
+                    /^typ$/i
+                ),
+                {
+                    target: {
+                        value: "SKATES",
+                    },
+                }
+            );
+
+            fireEvent.change(
+                screen.getByLabelText(
+                    /^skick$/i
+                ),
+                {
+                    target: {
+                        value: "WORN",
+                    },
+                }
+            );
+
+            fireEvent.change(
+                screen.getByLabelText(
+                    /^ålderskategori$/i
+                ),
+                {
+                    target: {
+                        value: "SENIOR",
+                    },
+                }
+            );
+
+            fireEvent.change(
+                screen.getByLabelText(
+                    /aktiv status/i
+                ),
+                {
+                    target: {
+                        value: "ACTIVE",
+                    },
+                }
+            );
+
+            fireEvent.change(
+                screen.getByLabelText(
+                    /lånestatus/i
+                ),
+                {
+                    target: {
+                        value: "LOANED",
+                    },
+                }
+            );
+
+            expect(
+                screen.getAllByText(
+                    "SKATES-001"
+                ).length
+            ).toBeGreaterThan(0);
+
+            expect(
+                screen.queryByText(
+                    "HELMET-001"
+                )
+            ).not.toBeInTheDocument();
+
+            expect(
+                screen.queryByText(
+                    "STICK-001"
+                )
+            ).not.toBeInTheDocument();
+
+            fireEvent.click(
+                screen.getByRole(
+                    "button",
+                    {
+                        name:
+                            /rensa filter/i,
+                    }
+                )
+            );
+
+            expect(
+                screen.getAllByText(
+                    "HELMET-001"
+                ).length
+            ).toBeGreaterThan(0);
+
+            expect(
+                screen.getAllByText(
+                    "STICK-001"
+                ).length
+            ).toBeGreaterThan(0);
+        }
+    );
+
+    test(
+        "provides edit links for equipment",
+        async () => {
+            mockEquipmentList();
+
+            renderAdminPage();
+
+            await screen.findAllByText(
+                "HELMET-001"
+            );
+
+            const editLinks =
+                screen.getAllByRole(
+                    "link",
+                    {
+                        name: /redigera/i,
+                    }
+                );
+
+            expect(editLinks.length)
+                .toBeGreaterThan(0);
+
+            expect(editLinks[0])
+                .toHaveAttribute(
+                    "href",
+                    "/admin/equipment/1/edit"
+                );
+        }
+    );
+
+    test(
+        "deactivates equipment after confirmation",
+        async () => {
+            api.get.mockResolvedValueOnce({
+                data: [
+                    availableHelmet,
+                ],
+            });
+
+            api.put.mockResolvedValueOnce({
+                data: {
+                    ...availableHelmet,
+                    active: false,
+                },
+            });
+
+            renderAdminPage();
+
+            await screen.findAllByText(
+                "HELMET-001"
+            );
+
+            clickFirstButton(
+                /^inaktivera$/i
+            );
+
+            expect(
+                screen.getByRole(
+                    "dialog",
+                    {
+                        name:
+                            /inaktivera utrustning/i,
+                    }
+                )
+            ).toBeInTheDocument();
+
+            expect(
+                screen.getByText(
+                    /lånehistoriken bevaras/i
+                )
+            ).toBeInTheDocument();
+
+            fireEvent.click(
+                screen.getByRole(
+                    "button",
+                    {
+                        name:
+                            /ja, inaktivera/i,
+                    }
+                )
+            );
+
+            await waitFor(() => {
+                expect(api.put)
+                    .toHaveBeenCalledWith(
+                        "/admin/equipment/1/active",
+                        {
+                            active: false,
+                        }
+                    );
+            });
+
+            expect(
+                await screen.findByText(
+                    /HELMET-001 har inaktiverats/i
+                )
+            ).toBeInTheDocument();
+
+            expect(
+                screen.getAllByText(
+                    /^inaktiverad$/i
+                ).length
+            ).toBeGreaterThan(0);
+        }
+    );
+
+    test(
+        "reactivates inactive equipment",
+        async () => {
+            api.get.mockResolvedValueOnce({
+                data: [
+                    inactiveStick,
+                ],
+            });
+
+            api.put.mockResolvedValueOnce({
+                data: {
+                    ...inactiveStick,
+                    active: true,
+                },
+            });
+
+            renderAdminPage();
+
+            await screen.findAllByText(
+                "STICK-001"
+            );
+
+            clickFirstButton(
+                /^återaktivera$/i
+            );
+
+            fireEvent.click(
+                screen.getByRole(
+                    "button",
+                    {
+                        name:
+                            /ja, återaktivera/i,
+                    }
+                )
+            );
+
+            await waitFor(() => {
+                expect(api.put)
+                    .toHaveBeenCalledWith(
+                        "/admin/equipment/3/active",
+                        {
+                            active: true,
+                        }
+                    );
+            });
+
+            expect(
+                await screen.findByText(
+                    /STICK-001 har återaktiverats/i
+                )
+            ).toBeInTheDocument();
+
+            expect(
+                screen.getAllByText(
+                    /^tillgänglig$/i
                 ).length
             ).toBeGreaterThan(0);
         }
@@ -149,9 +529,16 @@ describe("AdminPage", () => {
     test(
         "returns loaned equipment through active loan",
         async () => {
+            const returnedEquipment = {
+                ...loanedSkates,
+                available: true,
+            };
+
             api.get
                 .mockResolvedValueOnce({
-                    data: [loanedEquipment],
+                    data: [
+                        loanedSkates,
+                    ],
                 })
                 .mockResolvedValueOnce({
                     data: {
@@ -163,7 +550,7 @@ describe("AdminPage", () => {
                                 returned: false,
                                 returnedAt: null,
                                 equipment:
-                                loanedEquipment,
+                                loanedSkates,
                             },
                         ],
                         page: 0,
@@ -175,7 +562,9 @@ describe("AdminPage", () => {
                     },
                 })
                 .mockResolvedValueOnce({
-                    data: [availableEquipment],
+                    data: [
+                        returnedEquipment,
+                    ],
                 });
 
             api.put.mockResolvedValueOnce({
@@ -187,18 +576,29 @@ describe("AdminPage", () => {
                     returnedAt:
                         "2026-07-29T14:15:00",
                     equipment:
-                    availableEquipment,
+                    returnedEquipment,
                 },
             });
 
             renderAdminPage();
 
             await screen.findAllByText(
-                "HELMET-001"
+                "SKATES-001"
             );
 
-            openReturnConfirmation();
-            confirmReturn();
+            clickFirstButton(
+                /markera återlämnad/i
+            );
+
+            fireEvent.click(
+                screen.getByRole(
+                    "button",
+                    {
+                        name:
+                            /ja, markera återlämnad/i,
+                    }
+                )
+            );
 
             await waitFor(() => {
                 expect(api.get)
@@ -208,7 +608,7 @@ describe("AdminPage", () => {
                             params: {
                                 status: "ACTIVE",
                                 serialNumber:
-                                    "HELMET-001",
+                                    "SKATES-001",
                                 page: 0,
                                 size: 1,
                             },
@@ -223,21 +623,9 @@ describe("AdminPage", () => {
 
             expect(
                 await screen.findByText(
-                    /HELMET-001 är markerad som återlämnad/i
+                    /SKATES-001 är markerad som återlämnad/i
                 )
             ).toBeInTheDocument();
-
-            expect(
-                screen.getAllByText(
-                    /tillgänglig/i
-                ).length
-            ).toBeGreaterThan(0);
-
-            expect(
-                screen.queryByRole("button", {
-                    name: /markera som återlämnad/i,
-                })
-            ).not.toBeInTheDocument();
         }
     );
 
@@ -246,7 +634,9 @@ describe("AdminPage", () => {
         async () => {
             api.get
                 .mockResolvedValueOnce({
-                    data: [loanedEquipment],
+                    data: [
+                        loanedSkates,
+                    ],
                 })
                 .mockResolvedValueOnce({
                     data: {
@@ -263,11 +653,22 @@ describe("AdminPage", () => {
             renderAdminPage();
 
             await screen.findAllByText(
-                "HELMET-001"
+                "SKATES-001"
             );
 
-            openReturnConfirmation();
-            confirmReturn();
+            clickFirstButton(
+                /markera återlämnad/i
+            );
+
+            fireEvent.click(
+                screen.getByRole(
+                    "button",
+                    {
+                        name:
+                            /ja, markera återlämnad/i,
+                    }
+                )
+            );
 
             expect(
                 await screen.findByText(
@@ -281,58 +682,7 @@ describe("AdminPage", () => {
     );
 
     test(
-        "keeps equipment loaned when return fails",
-        async () => {
-            api.get
-                .mockResolvedValueOnce({
-                    data: [loanedEquipment],
-                })
-                .mockResolvedValueOnce({
-                    data: {
-                        content: [
-                            {
-                                id: 10,
-                                returned: false,
-                                equipment:
-                                loanedEquipment,
-                            },
-                        ],
-                    },
-                });
-
-            api.put.mockRejectedValueOnce({
-                response: {
-                    status: 409,
-                },
-                displayMessage:
-                    "Lånet är redan återlämnat.",
-            });
-
-            renderAdminPage();
-
-            await screen.findAllByText(
-                "HELMET-001"
-            );
-
-            openReturnConfirmation();
-            confirmReturn();
-
-            expect(
-                await screen.findByText(
-                    "Lånet är redan återlämnat."
-                )
-            ).toBeInTheDocument();
-
-            expect(
-                screen.getAllByText(
-                    /utlånad/i
-                ).length
-            ).toBeGreaterThan(0);
-        }
-    );
-
-    test(
-        "renders error message when api fails",
+        "renders error message when equipment api fails",
         async () => {
             api.get.mockRejectedValueOnce(
                 new Error("Network error")

@@ -1,28 +1,41 @@
-import { Route, Routes } from "react-router";
-import Layout from "./components/layout/Layout";
+import {
+    Route,
+    Routes,
+} from "react-router";
 import ProtectedAdminRoute from "./auth/ProtectedAdminRoute";
-import AdminLoginPage from "./pages/AdminLoginPage";
-import AdminPage from "./pages/AdminPage";
+import Layout from "./components/layout/Layout";
 import ActiveLoansPage from "./pages/ActiveLoansPage";
 import AddEquipment from "./pages/AddEquipment";
-import QrCodeView from "./pages/QrCodeView";
-import LoanForm from "./pages/LoanForm";
-import ThankYou from "./pages/ThankYou";
+import AdminLoginPage from "./pages/AdminLoginPage";
+import AdminPage from "./pages/AdminPage";
+import EditEquipment from "./pages/EditEquipment";
 import HomePage from "./pages/HomePage";
+import LoanForm from "./pages/LoanForm";
+import QrCodeView from "./pages/QrCodeView";
 import QrScannerPage from "./pages/QrScannerPage";
+import ThankYou from "./pages/ThankYou";
 
 function App() {
     return (
         <Routes>
             <Route element={<Layout />}>
-                <Route path="/" element={<HomePage />} />
+                <Route
+                    path="/"
+                    element={<HomePage />}
+                />
 
                 <Route
                     path="/admin/login"
-                    element={<AdminLoginPage />}
+                    element={
+                        <AdminLoginPage />
+                    }
                 />
 
-                <Route element={<ProtectedAdminRoute />}>
+                <Route
+                    element={
+                        <ProtectedAdminRoute />
+                    }
+                >
                     <Route
                         path="/admin"
                         element={<AdminPage />}
@@ -30,17 +43,30 @@ function App() {
 
                     <Route
                         path="/admin/loans"
-                        element={<ActiveLoansPage />}
+                        element={
+                            <ActiveLoansPage />
+                        }
                     />
 
                     <Route
                         path="/admin/add"
-                        element={<AddEquipment />}
+                        element={
+                            <AddEquipment />
+                        }
+                    />
+
+                    <Route
+                        path="/admin/equipment/:id/edit"
+                        element={
+                            <EditEquipment />
+                        }
                     />
 
                     <Route
                         path="/admin/qr/:id"
-                        element={<QrCodeView />}
+                        element={
+                            <QrCodeView />
+                        }
                     />
                 </Route>
 
@@ -61,7 +87,9 @@ function App() {
 
                 <Route
                     path="/scan"
-                    element={<QrScannerPage />}
+                    element={
+                        <QrScannerPage />
+                    }
                 />
             </Route>
         </Routes>

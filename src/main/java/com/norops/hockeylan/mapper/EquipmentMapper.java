@@ -8,14 +8,24 @@ public final class EquipmentMapper {
     private EquipmentMapper() {
     }
 
-    public static EquipmentResponseDTO toResponseDTO(Equipment equipment) {
+    public static EquipmentResponseDTO toResponseDTO(
+            Equipment equipment
+    ) {
         return new EquipmentResponseDTO(
                 equipment.getId(),
                 equipment.getType(),
                 equipment.getSerialNumber(),
+                equipment.getSize(),
+                equipment.getBrand(),
+                equipment.getModel(),
+                equipment.getCondition(),
+                equipment.getAgeCategory(),
+                equipment.getStorageLocation(),
                 equipment.getDescription(),
                 equipment.isAvailable(),
-                equipment.getCreatedDate()
+                equipment.isActive(),
+                equipment.getCreatedDate(),
+                equipment.getUpdatedDate()
         );
     }
 }
