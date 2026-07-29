@@ -56,7 +56,7 @@ function Layout() {
                                     to="/admin/loans"
                                     className={navLinkClass}
                                 >
-                                    Aktiva lån
+                                    Lånehistorik
                                 </NavLink>
                             </li>
                         </ul>

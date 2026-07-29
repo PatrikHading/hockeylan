@@ -14,17 +14,25 @@ function AdminPage() {
     const [equipment, setEquipment] = useState([]);
     const [loading, setLoading] = useState(true);
     const [returning, setReturning] = useState(false);
-    const [loggingOut, setLoggingOut] = useState(false);
-    const [errorMessage, setErrorMessage] = useState("");
-    const [successMessage, setSuccessMessage] = useState("");
-    const [searchTerm, setSearchTerm] = useState("");
-    const [selectedEquipment, setSelectedEquipment] = useState(null);
+    const [loggingOut, setLoggingOut] =
+        useState(false);
+    const [errorMessage, setErrorMessage] =
+        useState("");
+    const [successMessage, setSuccessMessage] =
+        useState("");
+    const [searchTerm, setSearchTerm] =
+        useState("");
+    const [
+        selectedEquipment,
+        setSelectedEquipment,
+    ] = useState(null);
 
     async function fetchEquipment() {
         try {
             setLoading(true);
 
-            const response = await api.get("/admin/equipment");
+            const response =
+                await api.get("/admin/equipment");
 
             setEquipment(response.data);
             setErrorMessage("");
@@ -33,8 +41,13 @@ function AdminPage() {
                 setErrorMessage(
                     "Du saknar behörighet att visa administratörsinnehållet."
                 );
-            } else if (error.response?.status !== 401) {
-                setErrorMessage("Kunde inte hämta utrustning.");
+            } else if (
+                error.response?.status !== 401
+            ) {
+                setErrorMessage(
+                    error.displayMessage
+                    || "Kunde inte hämta utrustning."
+                );
             }
         } finally {
             setLoading(false);
@@ -46,7 +59,8 @@ function AdminPage() {
     }, []);
 
     const filteredEquipment = useMemo(() => {
-        const query = searchTerm.toLowerCase().trim();
+        const query =
+            searchTerm.toLowerCase().trim();
 
         if (!query) {
             return equipment;
@@ -54,18 +68,27 @@ function AdminPage() {
 
         return equipment.filter((item) => {
             return (
-                item.type?.toLowerCase().includes(query) ||
-                item.serialNumber?.toLowerCase().includes(query) ||
-                item.description?.toLowerCase().includes(query)
+                item.type
+                    ?.toLowerCase()
+                    .includes(query)
+                || item.serialNumber
+                    ?.toLowerCase()
+                    .includes(query)
+                || item.description
+                    ?.toLowerCase()
+                    .includes(query)
             );
         });
     }, [equipment, searchTerm]);
 
     const totalCount = equipment.length;
+
     const availableCount = equipment.filter(
         (item) => item.available
     ).length;
-    const loanedCount = totalCount - availableCount;
+
+    const loanedCount =
+        totalCount - availableCount;
 
     async function handleReturned() {
         if (!selectedEquipment) {
@@ -77,8 +100,35 @@ function AdminPage() {
             setErrorMessage("");
             setSuccessMessage("");
 
+            const historyResponse =
+                await api.get(
+                    "/admin/loans",
+                    {
+                        params: {
+                            status: "ACTIVE",
+                            serialNumber:
+                            selectedEquipment
+                                .serialNumber,
+                            page: 0,
+                            size: 1,
+                        },
+                    }
+                );
+
+            const activeLoan =
+                historyResponse.data.content[0];
+
+            if (!activeLoan) {
+                setErrorMessage(
+                    "Det finns inget aktivt lån för den valda utrustningen."
+                );
+
+                setSelectedEquipment(null);
+                return;
+            }
+
             await api.put(
-                `/admin/equipment/${selectedEquipment.id}/returned`
+                `/admin/loans/${activeLoan.id}/returned`
             );
 
             await fetchEquipment();
@@ -91,12 +141,14 @@ function AdminPage() {
         } catch (error) {
             if (error.response?.status === 403) {
                 setErrorMessage(
-                    "Du saknar behörighet att markera utrustning som återlämnad."
+                    "Du saknar behörighet att registrera återlämningen."
                 );
-            } else if (error.response?.status !== 401) {
+            } else if (
+                error.response?.status !== 401
+            ) {
                 setErrorMessage(
-                    error.response?.data?.message ||
-                    "Kunde inte markera som återlämnad."
+                    error.displayMessage
+                    || "Kunde inte markera utrustningen som återlämnad."
                 );
             }
         } finally {
@@ -129,19 +181,25 @@ function AdminPage() {
             <section className="mobile-card rounded-3xl bg-white p-5 shadow-sm sm:p-6">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                        <Badge variant="hockey">Admin</Badge>
+                        <Badge variant="hockey">
+                            Admin
+                        </Badge>
 
-                        <h1 className="mt-3">Utrustning</h1>
+                        <h1 className="mt-3">
+                            Utrustning
+                        </h1>
 
                         <p className="mt-2 max-w-2xl">
-                            Hantera utrustning, skapa QR-koder och
-                            markera återlämningar.
+                            Hantera utrustning, skapa
+                            QR-koder och markera
+                            återlämningar.
                         </p>
                     </div>
 
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                         <p className="text-sm font-semibold text-slate-600">
-                            Inloggad som {admin?.username}
+                            Inloggad som{" "}
+                            {admin?.username}
                         </p>
 
                         <Link to="/admin/add">
@@ -207,13 +265,19 @@ function AdminPage() {
             </section>
 
             {errorMessage && (
-                <Alert title="Något gick fel" variant="danger">
+                <Alert
+                    title="Något gick fel"
+                    variant="danger"
+                >
                     {errorMessage}
                 </Alert>
             )}
 
             {successMessage && (
-                <Alert title="Klart" variant="success">
+                <Alert
+                    title="Klart"
+                    variant="success"
+                >
                     {successMessage}
                 </Alert>
             )}
@@ -224,7 +288,8 @@ function AdminPage() {
                         <h2>Lista</h2>
 
                         <p className="mt-1 text-sm text-slate-600">
-                            Sök på typ, serienummer eller beskrivning.
+                            Sök på typ, serienummer
+                            eller beskrivning.
                         </p>
                     </div>
 
@@ -241,7 +306,9 @@ function AdminPage() {
                             type="search"
                             value={searchTerm}
                             onChange={(event) =>
-                                setSearchTerm(event.target.value)
+                                setSearchTerm(
+                                    event.target.value
+                                )
                             }
                             placeholder="Sök utrustning..."
                             aria-label="Sök utrustning"
@@ -251,17 +318,24 @@ function AdminPage() {
                 </div>
 
                 {loading ? (
-                    <div className="grid gap-3">
+                    <div
+                        className="grid gap-3"
+                        aria-label="Laddar utrustning"
+                    >
                         <div className="h-20 animate-pulse rounded-2xl bg-slate-100" />
                         <div className="h-20 animate-pulse rounded-2xl bg-slate-100" />
                         <div className="h-20 animate-pulse rounded-2xl bg-slate-100" />
                     </div>
-                ) : filteredEquipment.length === 0 ? (
+                ) : filteredEquipment.length
+                === 0 ? (
                     <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
-                        <h3>Ingen utrustning hittades</h3>
+                        <h3>
+                            Ingen utrustning hittades
+                        </h3>
 
                         <p className="mt-2 text-sm text-slate-600">
-                            Prova en annan sökning eller lägg till ny
+                            Prova en annan sökning
+                            eller lägg till ny
                             utrustning.
                         </p>
                     </div>
@@ -280,131 +354,153 @@ function AdminPage() {
                                 </thead>
 
                                 <tbody>
-                                {filteredEquipment.map((item) => (
-                                    <tr key={item.id}>
-                                        <td className="font-semibold text-slate-900">
-                                            {item.type}
-                                        </td>
+                                {filteredEquipment.map(
+                                    (item) => (
+                                        <tr key={item.id}>
+                                            <td className="font-semibold text-slate-900">
+                                                {item.type}
+                                            </td>
 
-                                        <td className="font-mono text-sm font-semibold text-slate-700">
-                                            {item.serialNumber}
-                                        </td>
+                                            <td className="font-mono text-sm font-semibold text-slate-700">
+                                                {
+                                                    item
+                                                        .serialNumber
+                                                }
+                                            </td>
 
-                                        <td className="text-slate-600">
-                                            {item.description || "-"}
-                                        </td>
+                                            <td className="text-slate-600">
+                                                {
+                                                    item.description
+                                                    || "-"
+                                                }
+                                            </td>
 
-                                        <td>
-                                            {item.available ? (
-                                                <Badge variant="success">
-                                                    Tillgänglig
-                                                </Badge>
-                                            ) : (
-                                                <Badge variant="warning">
-                                                    Utlånad
-                                                </Badge>
-                                            )}
-                                        </td>
+                                            <td>
+                                                {item.available
+                                                    ? (
+                                                        <Badge variant="success">
+                                                            Tillgänglig
+                                                        </Badge>
+                                                    )
+                                                    : (
+                                                        <Badge variant="warning">
+                                                            Utlånad
+                                                        </Badge>
+                                                    )}
+                                            </td>
 
-                                        <td>
-                                            <div className="flex flex-wrap gap-2">
-                                                <Link
-                                                    to={`/admin/qr/${item.id}`}
-                                                >
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="mobile-button"
+                                            <td>
+                                                <div className="flex flex-wrap gap-2">
+                                                    <Link
+                                                        to={`/admin/qr/${item.id}`}
                                                     >
-                                                        QR
-                                                    </Button>
-                                                </Link>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="mobile-button"
+                                                        >
+                                                            QR
+                                                        </Button>
+                                                    </Link>
 
-                                                {!item.available && (
-                                                    <Button
-                                                        type="button"
-                                                        variant="secondary"
-                                                        size="sm"
-                                                        className="mobile-button"
-                                                        onClick={() =>
-                                                            setSelectedEquipment(
-                                                                item
-                                                            )
-                                                        }
-                                                    >
-                                                        Återlämnad
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
+                                                    {!item.available && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="secondary"
+                                                            size="sm"
+                                                            className="mobile-button"
+                                                            onClick={() =>
+                                                                setSelectedEquipment(
+                                                                    item
+                                                                )
+                                                            }
+                                                        >
+                                                            Återlämnad
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )
+                                )}
                                 </tbody>
                             </table>
                         </div>
 
                         <div className="grid gap-4 md:hidden">
-                            {filteredEquipment.map((item) => (
-                                <article
-                                    key={item.id}
-                                    className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
-                                >
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div>
-                                            <h3>{item.type}</h3>
+                            {filteredEquipment.map(
+                                (item) => (
+                                    <article
+                                        key={item.id}
+                                        className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div>
+                                                <h3>
+                                                    {
+                                                        item.type
+                                                    }
+                                                </h3>
 
-                                            <p className="mt-1 font-mono text-sm text-slate-600">
-                                                {item.serialNumber}
-                                            </p>
+                                                <p className="mt-1 font-mono text-sm text-slate-600">
+                                                    {
+                                                        item
+                                                            .serialNumber
+                                                    }
+                                                </p>
+                                            </div>
+
+                                            {item.available
+                                                ? (
+                                                    <Badge variant="success">
+                                                        Tillgänglig
+                                                    </Badge>
+                                                )
+                                                : (
+                                                    <Badge variant="warning">
+                                                        Utlånad
+                                                    </Badge>
+                                                )}
                                         </div>
 
-                                        {item.available ? (
-                                            <Badge variant="success">
-                                                Tillgänglig
-                                            </Badge>
-                                        ) : (
-                                            <Badge variant="warning">
-                                                Utlånad
-                                            </Badge>
-                                        )}
-                                    </div>
+                                        <p className="mt-3 text-sm text-slate-600">
+                                            {item.description
+                                                || "Ingen beskrivning angiven."}
+                                        </p>
 
-                                    <p className="mt-3 text-sm text-slate-600">
-                                        {item.description ||
-                                            "Ingen beskrivning angiven."}
-                                    </p>
-
-                                    <div className="mt-4 flex flex-col gap-2">
-                                        <Link
-                                            to={`/admin/qr/${item.id}`}
-                                        >
-                                            <Button
-                                                variant="outline"
-                                                fullWidth
-                                                className="mobile-button"
+                                        <div className="mt-4 flex flex-col gap-2">
+                                            <Link
+                                                to={`/admin/qr/${item.id}`}
                                             >
-                                                Visa QR-kod
-                                            </Button>
-                                        </Link>
+                                                <Button
+                                                    variant="outline"
+                                                    fullWidth
+                                                    className="mobile-button"
+                                                >
+                                                    Visa QR-kod
+                                                </Button>
+                                            </Link>
 
-                                        {!item.available && (
-                                            <Button
-                                                type="button"
-                                                variant="secondary"
-                                                fullWidth
-                                                className="mobile-button"
-                                                onClick={() =>
-                                                    setSelectedEquipment(
-                                                        item
-                                                    )
-                                                }
-                                            >
-                                                Markera som återlämnad
-                                            </Button>
-                                        )}
-                                    </div>
-                                </article>
-                            ))}
+                                            {!item.available && (
+                                                <Button
+                                                    type="button"
+                                                    variant="secondary"
+                                                    fullWidth
+                                                    className="mobile-button"
+                                                    onClick={() =>
+                                                        setSelectedEquipment(
+                                                            item
+                                                        )
+                                                    }
+                                                >
+                                                    Markera som
+                                                    återlämnad
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </article>
+                                )
+                            )}
                         </div>
                     </>
                 )}
@@ -423,7 +519,9 @@ function AdminPage() {
                 loading={returning}
                 variant="secondary"
                 onConfirm={handleReturned}
-                onCancel={() => setSelectedEquipment(null)}
+                onCancel={() =>
+                    setSelectedEquipment(null)
+                }
             />
         </div>
     );

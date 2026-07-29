@@ -3,8 +3,8 @@ package com.norops.hockeylan.repository;
 import com.norops.hockeylan.model.Equipment;
 import com.norops.hockeylan.model.Loan;
 import jakarta.persistence.LockModeType;
-import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,12 +13,10 @@ import java.util.List;
 import java.util.Optional;
 
 public interface LoanRepository
-        extends JpaRepository<Loan, Long> {
+        extends JpaRepository<Loan, Long>,
+        JpaSpecificationExecutor<Loan> {
 
     List<Loan> findByReturned(boolean returned);
-
-    @EntityGraph(attributePaths = "equipment")
-    List<Loan> findByReturnedFalseOrderByLoanDateAsc();
 
     List<Loan> findByEquipmentId(Long equipmentId);
 

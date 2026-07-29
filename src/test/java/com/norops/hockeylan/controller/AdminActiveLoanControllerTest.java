@@ -1,6 +1,6 @@
 package com.norops.hockeylan.controller;
 
-import com.norops.hockeylan.exception.BusinessRuleException;
+import com.norops.hockeylan.dto.LoanHistoryStatus;
 import com.norops.hockeylan.exception.GlobalExceptionHandler;
 import com.norops.hockeylan.model.Equipment;
 import com.norops.hockeylan.model.EquipmentType;
@@ -12,15 +12,17 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -57,74 +59,78 @@ class AdminActiveLoanControllerTest {
     }
 
     @Test
-    void getActiveLoansShouldReturnAdminLoanData()
+    void historyShouldReturnPagedAdminLoanData()
             throws Exception {
         Loan loan = activeLoan();
 
-        when(loanService.getActiveLoans())
-                .thenReturn(List.of(loan));
-
-        mockMvc.perform(get("/api/admin/loans/active"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(10L))
-                .andExpect(jsonPath("$[0].borrowerName")
-                        .value("Patrik Hading"))
-                .andExpect(jsonPath("$[0].loanDate")
-                        .value("2026-07-28T12:30:00"))
-                .andExpect(jsonPath("$[0].returned")
-                        .value(false))
-                .andExpect(jsonPath("$[0].returnedAt")
-                        .doesNotExist());
-    }
-
-    @Test
-    void markLoanReturnedShouldReturnTimestamp()
-            throws Exception {
-        Loan loan = activeLoan();
-        loan.registerReturn(
-                LocalDateTime.of(2026, 7, 29, 10, 15)
+        when(loanService.getLoanHistory(
+                LoanHistoryStatus.ACTIVE,
+                LocalDate.of(2026, 7, 1),
+                LocalDate.of(2026, 7, 31),
+                "HELMET-001",
+                EquipmentType.HELMET,
+                "Patrik",
+                0,
+                20
+        )).thenReturn(
+                new PageImpl<>(List.of(loan))
         );
-        loan.getEquipment().setAvailable(true);
 
-        when(loanService.markReturned(10L))
-                .thenReturn(loan);
-
-        mockMvc.perform(
-                        put("/api/admin/loans/10/returned")
-                )
+        mockMvc.perform(get("/api/admin/loans")
+                        .param("status", "ACTIVE")
+                        .param("from", "2026-07-01")
+                        .param("to", "2026-07-31")
+                        .param(
+                                "serialNumber",
+                                "HELMET-001"
+                        )
+                        .param(
+                                "equipmentType",
+                                "HELMET"
+                        )
+                        .param("borrower", "Patrik")
+                        .param("page", "0")
+                        .param("size", "20"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(10L))
-                .andExpect(jsonPath("$.returned").value(true))
-                .andExpect(jsonPath("$.returnedAt")
-                        .value("2026-07-29T10:15:00"))
-                .andExpect(jsonPath("$.equipment.available")
-                        .value(true));
+                .andExpect(jsonPath("$.content[0].id")
+                        .value(10))
+                .andExpect(jsonPath(
+                        "$.content[0].borrowerName"
+                ).value("Patrik Hading"))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(1))
+                .andExpect(jsonPath("$.totalElements")
+                        .value(1))
+                .andExpect(jsonPath("$.first").value(true))
+                .andExpect(jsonPath("$.last").value(true));
     }
 
     @Test
-    void duplicateReturnShouldProduce409()
+    void historyShouldRejectPageSizeOver100()
             throws Exception {
-        when(loanService.markReturned(10L))
-                .thenThrow(new BusinessRuleException(
-                        "Lånet är redan återlämnat."
-                ));
-
-        mockMvc.perform(
-                        put("/api/admin/loans/10/returned")
+        when(loanService.getLoanHistory(
+                LoanHistoryStatus.ALL,
+                null,
+                null,
+                null,
+                null,
+                null,
+                0,
+                101
+        )).thenThrow(
+                new IllegalArgumentException(
+                        "Page size must be between 1 and 100."
                 )
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.status").value(409))
+        );
+
+        mockMvc.perform(get("/api/admin/loans")
+                        .param("size", "101"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error")
+                        .value("Bad Request"))
                 .andExpect(jsonPath("$.message")
-                        .value("Lånet är redan återlämnat."));
-    }
-
-    @Test
-    void legacyEquipmentReturnEndpointShouldBeRemoved()
-            throws Exception {
-        mockMvc.perform(
-                        put("/api/admin/equipment/1/returned")
-                )
-                .andExpect(status().isNotFound());
+                        .value("Request could not be processed."));
     }
 
     private Loan activeLoan() {

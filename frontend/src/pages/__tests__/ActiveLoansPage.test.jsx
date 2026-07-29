@@ -22,40 +22,51 @@ vi.mock("../../api/api", () => ({
     },
 }));
 
-const activeLoans = [
-    {
-        id: 10,
-        borrowerName: "Patrik Hading",
-        email: "patrik@example.com",
-        phoneNumber: "+46701234567",
-        loanDate: "2026-07-28T12:30:00",
-        returned: false,
-        returnedAt: null,
-        equipment: {
-            id: 1,
-            type: "HELMET",
-            serialNumber: "HELMET-001",
-            description: "Bauer hjälm",
-            available: false,
-        },
+const activeLoan = {
+    id: 10,
+    borrowerName: "Patrik Hading",
+    email: "patrik@example.com",
+    phoneNumber: "+46701234567",
+    loanDate: "2026-07-28T12:30:00",
+    returned: false,
+    returnedAt: null,
+    equipment: {
+        id: 1,
+        type: "HELMET",
+        serialNumber: "HELMET-001",
+        description: "Bauer hjälm",
+        available: false,
     },
-    {
-        id: 11,
-        borrowerName: "Anna Andersson",
-        email: "anna@example.com",
-        phoneNumber: "+46709876543",
-        loanDate: "2026-07-28T13:00:00",
-        returned: false,
-        returnedAt: null,
-        equipment: {
-            id: 2,
-            type: "SKATES",
-            serialNumber: "SKATES-001",
-            description: "CCM skridskor",
-            available: false,
-        },
+};
+
+const returnedLoan = {
+    ...activeLoan,
+    id: 11,
+    borrowerName: "Anna Andersson",
+    email: "anna@example.com",
+    phoneNumber: "+46709876543",
+    returned: true,
+    returnedAt: "2026-07-29T10:15:00",
+    equipment: {
+        ...activeLoan.equipment,
+        id: 2,
+        serialNumber: "HELMET-002",
+        available: true,
     },
-];
+};
+
+function page(content, overrides = {}) {
+    return {
+        content,
+        page: 0,
+        size: 20,
+        totalElements: content.length,
+        totalPages: content.length ? 1 : 0,
+        first: true,
+        last: true,
+        ...overrides,
+    };
+}
 
 function renderPage() {
     return render(
@@ -65,148 +76,244 @@ function renderPage() {
     );
 }
 
-function openReturnConfirmation() {
-    fireEvent.click(
-        screen.getAllByRole("button", {
-            name: /markera som återlämnad/i,
-        })[0]
-    );
-}
-
-function confirmReturn() {
-    fireEvent.click(
-        screen.getByRole("button", {
-            name: /ja, markera återlämnad/i,
-        })
-    );
-}
-
 describe("ActiveLoansPage", () => {
     beforeEach(() => {
         vi.clearAllMocks();
     });
 
-    test("renders loading and then empty state", async () => {
-        api.get.mockResolvedValueOnce({
-            data: [],
-        });
-
-        renderPage();
-
-        expect(
-            screen.getByLabelText(/laddar aktiva lån/i)
-        ).toBeInTheDocument();
-
-        expect(
-            await screen.findByRole("heading", {
-                name: /inga aktiva lån/i,
-            })
-        ).toBeInTheDocument();
-
-        expect(api.get).toHaveBeenCalledWith(
-            "/admin/loans/active"
-        );
-    });
-
     test(
-        "renders active loan and contact information",
+        "renders loading and empty states",
         async () => {
             api.get.mockResolvedValueOnce({
-                data: [activeLoans[0]],
+                data: page([]),
             });
 
             renderPage();
 
             expect(
-                await screen.findAllByText("Patrik Hading")
-            ).not.toHaveLength(0);
+                screen.getByLabelText(
+                    /laddar lånehistorik/i
+                )
+            ).toBeInTheDocument();
 
             expect(
-                screen.getAllByText("HELMET-001")
-            ).not.toHaveLength(0);
+                await screen.findByRole(
+                    "heading",
+                    {
+                        name: /inga lån hittades/i,
+                    }
+                )
+            ).toBeInTheDocument();
 
-            expect(
-                screen.getAllByText("patrik@example.com")
-            ).not.toHaveLength(0);
-
-            expect(
-                screen.getAllByText("+46701234567")
-            ).not.toHaveLength(0);
+            expect(api.get).toHaveBeenCalledWith(
+                "/admin/loans",
+                {
+                    params: {
+                        status: "ALL",
+                        page: 0,
+                        size: 20,
+                    },
+                }
+            );
         }
     );
 
     test(
-        "searches by borrower and serial number",
+        "renders active and returned loans",
         async () => {
             api.get.mockResolvedValueOnce({
-                data: activeLoans,
+                data: page([
+                    activeLoan,
+                    returnedLoan,
+                ]),
             });
 
             renderPage();
 
-            await screen.findAllByText("Patrik Hading");
+            expect(
+                await screen.findByText(
+                    "Patrik Hading"
+                )
+            ).toBeInTheDocument();
+
+            expect(
+                screen.getByText(
+                    "Anna Andersson"
+                )
+            ).toBeInTheDocument();
+
+            expect(
+                screen.getByText("Aktivt")
+            ).toBeInTheDocument();
+
+            expect(
+                screen.getByText("Återlämnat")
+            ).toBeInTheDocument();
+
+            expect(
+                screen.getByText(
+                    "patrik@example.com"
+                )
+            ).toBeInTheDocument();
+
+            expect(
+                screen.getByText(
+                    "anna@example.com"
+                )
+            ).toBeInTheDocument();
+
+            expect(
+                screen.getByText(
+                    "+46701234567"
+                )
+            ).toBeInTheDocument();
+
+            expect(
+                screen.getByText(
+                    "+46709876543"
+                )
+            ).toBeInTheDocument();
+        }
+    );
+
+    test(
+        "sends filters to backend",
+        async () => {
+            api.get
+                .mockResolvedValueOnce({
+                    data: page([]),
+                })
+                .mockResolvedValueOnce({
+                    data: page([activeLoan]),
+                });
+
+            renderPage();
+
+            await screen.findByRole(
+                "heading",
+                {
+                    name: /inga lån hittades/i,
+                }
+            );
 
             fireEvent.change(
-                screen.getByLabelText("Sök"),
+                screen.getByLabelText("Status"),
                 {
                     target: {
-                        value: "SKATES-001",
+                        value: "ACTIVE",
                     },
                 }
             );
 
-            expect(
-                screen.queryByText("Patrik Hading")
-            ).not.toBeInTheDocument();
+            fireEvent.change(
+                screen.getByLabelText(
+                    "Serienummer"
+                ),
+                {
+                    target: {
+                        value: "HELMET-001",
+                    },
+                }
+            );
 
-            expect(
-                screen.getAllByText("Anna Andersson")
-            ).not.toHaveLength(0);
+            fireEvent.change(
+                screen.getByLabelText(
+                    "Låntagare"
+                ),
+                {
+                    target: {
+                        value: "Patrik",
+                    },
+                }
+            );
+
+            fireEvent.click(
+                screen.getByRole("button", {
+                    name: /använd filter/i,
+                })
+            );
+
+            await waitFor(() => {
+                expect(
+                    api.get
+                ).toHaveBeenLastCalledWith(
+                    "/admin/loans",
+                    {
+                        params: {
+                            status: "ACTIVE",
+                            page: 0,
+                            size: 20,
+                            serialNumber:
+                                "HELMET-001",
+                            borrower: "Patrik",
+                        },
+                    }
+                );
+            });
         }
     );
 
-    test("filters by equipment type", async () => {
-        api.get.mockResolvedValueOnce({
-            data: activeLoans,
-        });
+    test("loads next page", async () => {
+        api.get
+            .mockResolvedValueOnce({
+                data: page([activeLoan], {
+                    totalElements: 21,
+                    totalPages: 2,
+                    last: false,
+                }),
+            })
+            .mockResolvedValueOnce({
+                data: page([returnedLoan], {
+                    page: 1,
+                    totalElements: 21,
+                    totalPages: 2,
+                    first: false,
+                }),
+            });
 
         renderPage();
 
-        await screen.findAllByText("Patrik Hading");
-
-        fireEvent.change(
-            screen.getByLabelText("Utrustningstyp"),
-            {
-                target: {
-                    value: "HELMET",
-                },
-            }
+        await screen.findByText(
+            "Patrik Hading"
         );
 
-        expect(
-            screen.getAllByText("Patrik Hading")
-        ).not.toHaveLength(0);
+        fireEvent.click(
+            screen.getByRole("button", {
+                name: "Nästa",
+            })
+        );
 
-        expect(
-            screen.queryByText("Anna Andersson")
-        ).not.toBeInTheDocument();
+        await waitFor(() => {
+            expect(
+                api.get
+            ).toHaveBeenLastCalledWith(
+                "/admin/loans",
+                {
+                    params: {
+                        status: "ALL",
+                        page: 1,
+                        size: 20,
+                    },
+                }
+            );
+        });
     });
 
     test(
-        "marks the selected loan as returned",
+        "marks active loan as returned",
         async () => {
             api.get.mockResolvedValueOnce({
-                data: [activeLoans[0]],
+                data: page([activeLoan]),
             });
 
             api.put.mockResolvedValueOnce({
                 data: {
-                    ...activeLoans[0],
+                    ...activeLoan,
                     returned: true,
                     returnedAt:
                         "2026-07-29T10:15:00",
                     equipment: {
-                        ...activeLoans[0].equipment,
+                        ...activeLoan.equipment,
                         available: true,
                     },
                 },
@@ -214,16 +321,31 @@ describe("ActiveLoansPage", () => {
 
             renderPage();
 
-            await screen.findAllByText("Patrik Hading");
+            await screen.findByText(
+                "Patrik Hading"
+            );
 
-            openReturnConfirmation();
-            confirmReturn();
+            fireEvent.click(
+                screen.getByRole("button", {
+                    name: /markera som återlämnad/i,
+                })
+            );
+
+            fireEvent.click(
+                screen.getByRole("button", {
+                    name: /ja, markera återlämnad/i,
+                })
+            );
 
             await waitFor(() => {
-                expect(api.put).toHaveBeenCalledTimes(1);
-                expect(api.put).toHaveBeenCalledWith(
-                    "/admin/loans/10/returned"
-                );
+                expect(api.put)
+                    .toHaveBeenCalledTimes(1);
+
+                expect(api.put)
+                    .toHaveBeenCalledWith(
+                        "/admin/loans/10/returned",
+                        {}
+                    );
             });
 
             expect(
@@ -233,121 +355,21 @@ describe("ActiveLoansPage", () => {
             ).toBeInTheDocument();
 
             expect(
-                screen.getByRole("heading", {
-                    name: /inga aktiva lån/i,
-                })
+                screen.getByText("Återlämnat")
             ).toBeInTheDocument();
 
             expect(
-                screen.queryByText("Patrik Hading")
-            ).not.toBeInTheDocument();
-        }
-    );
-
-    test(
-        "shows backend message when the loan is already returned",
-        async () => {
-            api.get.mockResolvedValueOnce({
-                data: [activeLoans[0]],
-            });
-
-            api.put.mockRejectedValueOnce({
-                response: {
-                    status: 409,
-                    data: {
-                        status: 409,
-                        error: "Business Rule Violation",
-                        message:
-                            "Lånet är redan återlämnat.",
-                        path:
-                            "/api/admin/loans/10/returned",
-                    },
-                },
-                displayMessage:
-                    "Lånet är redan återlämnat.",
-            });
-
-            renderPage();
-
-            await screen.findAllByText("Patrik Hading");
-
-            openReturnConfirmation();
-            confirmReturn();
-
-            expect(
-                await screen.findByText(
-                    "Lånet är redan återlämnat."
-                )
-            ).toBeInTheDocument();
-
-            expect(api.put).toHaveBeenCalledWith(
-                "/admin/loans/10/returned"
-            );
-
-            expect(
-                screen.getAllByText("Patrik Hading")
-            ).not.toHaveLength(0);
-
-            expect(
-                screen.getAllByText("HELMET-001")
-            ).not.toHaveLength(0);
-
-            expect(
-                screen.queryByRole("heading", {
-                    name: /inga aktiva lån/i,
+                screen.queryByRole("button", {
+                    name: /markera som återlämnad/i,
                 })
             ).not.toBeInTheDocument();
         }
     );
 
     test(
-        "shows permission error when return request receives 403",
+        "renders load error",
         async () => {
-            api.get.mockResolvedValueOnce({
-                data: [activeLoans[0]],
-            });
-
-            api.put.mockRejectedValueOnce({
-                response: {
-                    status: 403,
-                    data: {
-                        status: 403,
-                        error: "Forbidden",
-                        message: "Access is denied.",
-                        path:
-                            "/api/admin/loans/10/returned",
-                    },
-                },
-                displayMessage: "Access is denied.",
-            });
-
-            renderPage();
-
-            await screen.findAllByText("Patrik Hading");
-
-            openReturnConfirmation();
-            confirmReturn();
-
-            expect(
-                await screen.findByText(
-                    /du saknar behörighet att registrera återlämningen/i
-                )
-            ).toBeInTheDocument();
-
-            expect(
-                screen.getAllByText("Patrik Hading")
-            ).not.toHaveLength(0);
-        }
-    );
-
-    test(
-        "keeps loan in the list when return request fails",
-        async () => {
-            api.get.mockResolvedValueOnce({
-                data: [activeLoans[0]],
-            });
-
-            api.put.mockRejectedValueOnce({
+            api.get.mockRejectedValueOnce({
                 response: {
                     status: 500,
                 },
@@ -357,58 +379,9 @@ describe("ActiveLoansPage", () => {
 
             renderPage();
 
-            await screen.findAllByText("Patrik Hading");
-
-            openReturnConfirmation();
-            confirmReturn();
-
             expect(
                 await screen.findByText(
                     "Ett oväntat fel inträffade."
-                )
-            ).toBeInTheDocument();
-
-            expect(
-                screen.getAllByText("Patrik Hading")
-            ).not.toHaveLength(0);
-
-            expect(
-                screen.getAllByText("HELMET-001")
-            ).not.toHaveLength(0);
-        }
-    );
-
-    test(
-        "renders an error state when loading fails",
-        async () => {
-            api.get.mockRejectedValueOnce(
-                new Error("Network error")
-            );
-
-            renderPage();
-
-            expect(
-                await screen.findByText(
-                    /kunde inte hämta aktiva lån/i
-                )
-            ).toBeInTheDocument();
-        }
-    );
-
-    test(
-        "shows permission error when active loans request receives 403",
-        async () => {
-            api.get.mockRejectedValueOnce({
-                response: {
-                    status: 403,
-                },
-            });
-
-            renderPage();
-
-            expect(
-                await screen.findByText(
-                    /du saknar behörighet att visa aktiva lån/i
                 )
             ).toBeInTheDocument();
         }

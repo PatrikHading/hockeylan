@@ -36,7 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class HockeylanApplicationTests {
 
 	private static final Set<String> EXPECTED_MIGRATION_VERSIONS =
-			Set.of("0", "1", "2", "3", "4", "5", "6", "7");
+			Set.of("0", "1", "2", "3", "4", "5", "6", "7", "8");
 
 	private static final Set<String> EXPECTED_TABLES =
 			Set.of("equipment", "loans", "admins");
@@ -65,7 +65,9 @@ class HockeylanApplicationTests {
 			"idx_loans_returned",
 			"idx_loans_loan_date",
 			"ux_loans_one_active_loan_per_equipment",
-			"ux_admins_username_lower"
+			"ux_admins_username_lower",
+			"idx_loans_history_sort",
+			"idx_loans_status_history_sort"
 	);
 
 	@Container
