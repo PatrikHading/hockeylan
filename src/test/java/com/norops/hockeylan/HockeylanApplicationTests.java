@@ -36,7 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class HockeylanApplicationTests {
 
 	private static final Set<String> EXPECTED_MIGRATION_VERSIONS =
-			Set.of("0", "1", "2", "3", "4", "5", "6");
+			Set.of("0", "1", "2", "3", "4", "5", "6", "7");
 
 	private static final Set<String> EXPECTED_TABLES =
 			Set.of("equipment", "loans", "admins");
@@ -53,7 +53,8 @@ class HockeylanApplicationTests {
 			"chk_loans_phone_number_not_blank",
 			"admins_pkey",
 			"chk_admins_username_not_blank",
-			"chk_admins_password_hash_not_blank"
+			"chk_admins_password_hash_not_blank",
+			"chk_loans_return_state_consistent"
 	);
 
 	private static final Set<String> EXPECTED_INDEXES = Set.of(
@@ -307,6 +308,9 @@ class HockeylanApplicationTests {
 				.get()
 				.extracting(Loan::getId)
 				.isEqualTo(savedLoan.getId());
+
+		assertThat(savedLoan.isReturned()).isFalse();
+		assertThat(savedLoan.getReturnedAt()).isNull();
 	}
 
 	@Test

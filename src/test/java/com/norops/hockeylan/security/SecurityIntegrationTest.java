@@ -17,7 +17,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
-
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -164,6 +164,33 @@ class SecurityIntegrationTest {
 
         mockMvc.perform(get("/api/admin/equipment"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void anonymousReturnRequestReturns401()
+            throws Exception {
+        mockMvc.perform(
+                        put("/api/admin/loans/10/returned")
+                                .with(csrf())
+                )
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(
+                        jsonPath("$.error")
+                                .value("Unauthorized")
+                );
+    }
+
+    @Test
+    void authenticatedReturnWithoutCsrfReturns403()
+            throws Exception {
+        MockHttpSession session = login();
+
+        mockMvc.perform(
+                        put("/api/admin/loans/10/returned")
+                                .session(session)
+                )
+                .andExpect(status().isForbidden());
     }
 
     private MockHttpSession login() throws Exception {

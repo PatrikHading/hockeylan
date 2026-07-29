@@ -12,7 +12,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.security.core.AuthenticationException;
-
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 
@@ -146,6 +147,22 @@ public class GlobalExceptionHandler {
                 HttpStatus.UNAUTHORIZED,
                 "Unauthorized",
                 "Invalid username or password.",
+                request
+        );
+    }
+
+    @ExceptionHandler({
+            NoHandlerFoundException.class,
+            NoResourceFoundException.class
+    })
+    public ResponseEntity<ApiErrorResponse> handleEndpointNotFound(
+            Exception ex,
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.NOT_FOUND,
+                "Not Found",
+                "Requested endpoint was not found.",
                 request
         );
     }

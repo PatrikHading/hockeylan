@@ -4,8 +4,9 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.proxy.HibernateProxy;
 import org.hibernate.annotations.DynamicUpdate;
+import org.hibernate.proxy.HibernateProxy;
+
 import java.time.LocalDateTime;
 import java.util.Objects;
 
@@ -16,9 +17,18 @@ import java.util.Objects;
 @Table(
         name = "loans",
         indexes = {
-                @Index(name = "idx_loans_equipment_id", columnList = "equipment_id"),
-                @Index(name = "idx_loans_returned", columnList = "returned"),
-                @Index(name = "idx_loans_loan_date", columnList = "loan_date")
+                @Index(
+                        name = "idx_loans_equipment_id",
+                        columnList = "equipment_id"
+                ),
+                @Index(
+                        name = "idx_loans_returned",
+                        columnList = "returned"
+                ),
+                @Index(
+                        name = "idx_loans_loan_date",
+                        columnList = "loan_date"
+                )
         }
 )
 @DynamicUpdate
@@ -32,7 +42,9 @@ public class Loan extends BaseEntity {
     @JoinColumn(
             name = "equipment_id",
             nullable = false,
-            foreignKey = @ForeignKey(name = "fk_loans_equipment")
+            foreignKey = @ForeignKey(
+                    name = "fk_loans_equipment"
+            )
     )
     private Equipment equipment;
 
@@ -51,6 +63,9 @@ public class Loan extends BaseEntity {
     @Column(nullable = false)
     private boolean returned = false;
 
+    @Column(name = "returned_at")
+    private LocalDateTime returnedAt;
+
     public Loan(
             Equipment equipment,
             String borrowerName,
@@ -62,46 +77,54 @@ public class Loan extends BaseEntity {
         this.email = normalizeEmail(email);
         this.phoneNumber = normalizePhoneNumber(phoneNumber);
         this.returned = false;
+        this.returnedAt = null;
+    }
+
+    public void registerReturn(LocalDateTime returnTime) {
+        if (returnTime == null) {
+            throw new IllegalArgumentException(
+                    "Return time must not be null."
+            );
+        }
+
+        if (returned) {
+            throw new IllegalStateException(
+                    "Loan is already returned."
+            );
+        }
+
+        returned = true;
+        returnedAt = returnTime;
     }
 
     @PrePersist
     @PreUpdate
     protected void normalizeBeforeSave() {
-        if (this.loanDate == null) {
-            this.loanDate = LocalDateTime.now();
+        if (loanDate == null) {
+            loanDate = LocalDateTime.now();
         }
 
         normalizeFields();
     }
 
     private void normalizeFields() {
-        this.borrowerName = normalizeName(this.borrowerName);
-        this.email = normalizeEmail(this.email);
-        this.phoneNumber = normalizePhoneNumber(this.phoneNumber);
+        borrowerName = normalizeName(borrowerName);
+        email = normalizeEmail(email);
+        phoneNumber = normalizePhoneNumber(phoneNumber);
     }
 
     private String normalizeName(String value) {
-        if (value == null) {
-            return null;
-        }
-
-        return value.trim();
+        return value == null ? null : value.trim();
     }
 
     private String normalizeEmail(String value) {
-        if (value == null) {
-            return null;
-        }
-
-        return value.trim().toLowerCase();
+        return value == null
+                ? null
+                : value.trim().toLowerCase();
     }
 
     private String normalizePhoneNumber(String value) {
-        if (value == null) {
-            return null;
-        }
-
-        return value.trim();
+        return value == null ? null : value.trim();
     }
 
     @Override
@@ -114,13 +137,17 @@ public class Loan extends BaseEntity {
             return false;
         }
 
-        Class<?> objectClass = object instanceof HibernateProxy proxy
-                ? proxy.getHibernateLazyInitializer().getPersistentClass()
-                : object.getClass();
+        Class<?> objectClass =
+                object instanceof HibernateProxy proxy
+                        ? proxy.getHibernateLazyInitializer()
+                        .getPersistentClass()
+                        : object.getClass();
 
-        Class<?> thisClass = this instanceof HibernateProxy proxy
-                ? proxy.getHibernateLazyInitializer().getPersistentClass()
-                : this.getClass();
+        Class<?> thisClass =
+                this instanceof HibernateProxy proxy
+                        ? proxy.getHibernateLazyInitializer()
+                        .getPersistentClass()
+                        : getClass();
 
         if (thisClass != objectClass) {
             return false;
@@ -133,7 +160,9 @@ public class Loan extends BaseEntity {
     @Override
     public final int hashCode() {
         return this instanceof HibernateProxy proxy
-                ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode()
+                ? proxy.getHibernateLazyInitializer()
+                .getPersistentClass()
+                .hashCode()
                 : getClass().hashCode();
     }
 
@@ -145,6 +174,7 @@ public class Loan extends BaseEntity {
                 ", email='" + email + '\'' +
                 ", returned=" + returned +
                 ", loanDate=" + loanDate +
+                ", returnedAt=" + returnedAt +
                 ", createdDate=" + getCreatedDate() +
                 ", updatedDate=" + getUpdatedDate() +
                 '}';

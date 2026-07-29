@@ -109,29 +109,13 @@ public class AdminRestController {
     }
 
     @PutMapping("/loans/{loanId}/returned")
-    public ResponseEntity<AdminLoanResponseDTO> markLoanReturned(
-            @PathVariable Long loanId
-    ) {
+    public ResponseEntity<AdminLoanResponseDTO>
+    markLoanReturned(@PathVariable Long loanId) {
         Loan returnedLoan =
                 loanService.markReturned(loanId);
 
         return ResponseEntity.ok(
                 LoanMapper.toAdminResponseDTO(returnedLoan)
-        );
-    }
-
-    @PutMapping("/equipment/{id}/returned")
-    public ResponseEntity<EquipmentResponseDTO> markAsReturned(
-            @PathVariable Long id
-    ) {
-        Equipment equipment =
-                equipmentService.getEquipmentById(id);
-
-        Equipment returnedEquipment =
-                loanService.markReturned(equipment);
-
-        return ResponseEntity.ok(
-                EquipmentMapper.toResponseDTO(returnedEquipment)
         );
     }
 

@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -40,10 +41,12 @@ public class LoanService {
                 .findBySerialNumberIgnoreCaseForUpdate(
                         sanitizedSerialNumber
                 )
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Equipment not found with serial number: "
-                                + sanitizedSerialNumber
-                ));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Equipment not found with serial number: "
+                                        + sanitizedSerialNumber
+                        )
+                );
 
         if (!equipment.isAvailable()) {
             throw new BusinessRuleException(
@@ -51,7 +54,8 @@ public class LoanService {
             );
         }
 
-        if (loanRepository.existsByEquipmentAndReturnedFalse(equipment)) {
+        if (loanRepository
+                .existsByEquipmentAndReturnedFalse(equipment)) {
             throw new BusinessRuleException(
                     "Utrustningen har redan ett aktivt lån."
             );
@@ -86,53 +90,48 @@ public class LoanService {
 
     @Transactional(readOnly = true)
     public List<Loan> getActiveLoans() {
-        return loanRepository.findByReturnedFalseOrderByLoanDateAsc();
+        return loanRepository
+                .findByReturnedFalseOrderByLoanDateAsc();
     }
 
     public Loan markReturned(Long loanId) {
-        Loan activeLoan = loanRepository
-                .findByIdAndReturnedFalse(loanId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Active loan not found with id: " + loanId
-                ));
+        Loan loan = loanRepository.findByIdForUpdate(loanId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Loan not found with id: " + loanId
+                        )
+                );
 
-        completeReturn(activeLoan);
-
-        return activeLoan;
-    }
-
-    public Equipment markReturned(Equipment equipment) {
-        Loan activeLoan = loanRepository
-                .findByEquipmentIdAndReturnedFalse(equipment.getId())
-                .orElseThrow(() -> new BusinessRuleException(
-                        "Inget aktivt lån hittades för denna utrustning."
-                ));
-
-        completeReturn(activeLoan);
-
-        return activeLoan.getEquipment();
-    }
-
-    private void completeReturn(Loan activeLoan) {
-        if (activeLoan.isReturned()) {
+        if (loan.isReturned()) {
             throw new BusinessRuleException(
                     "Lånet är redan återlämnat."
             );
         }
 
-        Equipment equipment = activeLoan.getEquipment();
+        Equipment equipment = equipmentRepository
+                .findByIdForUpdate(loan.getEquipment().getId())
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Equipment not found with id: "
+                                        + loan.getEquipment().getId()
+                        )
+                );
 
-        activeLoan.setReturned(true);
+        loan.setEquipment(equipment);
+        loan.registerReturn(LocalDateTime.now());
         equipment.setAvailable(true);
 
-        loanRepository.save(activeLoan);
+        Loan savedLoan = loanRepository.save(loan);
         equipmentRepository.save(equipment);
 
         log.info(
-                "Marked loan {} as returned for equipment with serial number {}",
-                activeLoan.getId(),
+                "Marked loan {} as returned at {} for equipment {}",
+                savedLoan.getId(),
+                savedLoan.getReturnedAt(),
                 equipment.getSerialNumber()
         );
+
+        return savedLoan;
     }
 
     private void validateLoanForm(LoanFormDTO loanFormDTO) {
@@ -142,28 +141,22 @@ public class LoanService {
             );
         }
 
-        if (
-                loanFormDTO.getBorrowerName() == null
-                        || loanFormDTO.getBorrowerName().isBlank()
-        ) {
+        if (loanFormDTO.getBorrowerName() == null
+                || loanFormDTO.getBorrowerName().isBlank()) {
             throw new BusinessRuleException(
                     "Namn måste anges."
             );
         }
 
-        if (
-                loanFormDTO.getEmail() == null
-                        || loanFormDTO.getEmail().isBlank()
-        ) {
+        if (loanFormDTO.getEmail() == null
+                || loanFormDTO.getEmail().isBlank()) {
             throw new BusinessRuleException(
                     "E-post måste anges."
             );
         }
 
-        if (
-                loanFormDTO.getPhoneNumber() == null
-                        || loanFormDTO.getPhoneNumber().isBlank()
-        ) {
+        if (loanFormDTO.getPhoneNumber() == null
+                || loanFormDTO.getPhoneNumber().isBlank()) {
             throw new BusinessRuleException(
                     "Telefonnummer måste anges."
             );

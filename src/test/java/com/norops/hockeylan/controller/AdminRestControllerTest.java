@@ -20,7 +20,8 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -37,7 +38,10 @@ class AdminRestControllerTest {
     @BeforeEach
     void setUp() {
         AdminRestController controller =
-                new AdminRestController(equipmentService, loanService);
+                new AdminRestController(
+                        equipmentService,
+                        loanService
+                );
 
         ReflectionTestUtils.setField(
                 controller,
@@ -47,18 +51,22 @@ class AdminRestControllerTest {
 
         mockMvc = MockMvcBuilders
                 .standaloneSetup(controller)
-                .setControllerAdvice(new GlobalExceptionHandler())
+                .setControllerAdvice(
+                        new GlobalExceptionHandler()
+                )
                 .setValidator(validator())
                 .build();
     }
 
     @Test
-    void getAllEquipmentShouldReturnEquipmentList() throws Exception {
+    void getAllEquipmentShouldReturnEquipmentList()
+            throws Exception {
         Equipment equipment = new Equipment(
                 EquipmentType.STICK,
                 "STICK-001",
                 "CCM klubba"
         );
+
         equipment.setId(1L);
         equipment.setAvailable(true);
 
@@ -67,20 +75,37 @@ class AdminRestControllerTest {
 
         mockMvc.perform(get("/api/admin/equipment"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(1L))
-                .andExpect(jsonPath("$[0].type").value("STICK"))
-                .andExpect(jsonPath("$[0].serialNumber").value("STICK-001"))
-                .andExpect(jsonPath("$[0].description").value("CCM klubba"))
-                .andExpect(jsonPath("$[0].available").value(true));
+                .andExpect(
+                        jsonPath("$[0].id")
+                                .value(1L)
+                )
+                .andExpect(
+                        jsonPath("$[0].type")
+                                .value("STICK")
+                )
+                .andExpect(
+                        jsonPath("$[0].serialNumber")
+                                .value("STICK-001")
+                )
+                .andExpect(
+                        jsonPath("$[0].description")
+                                .value("CCM klubba")
+                )
+                .andExpect(
+                        jsonPath("$[0].available")
+                                .value(true)
+                );
     }
 
     @Test
-    void addEquipmentShouldReturn201() throws Exception {
+    void addEquipmentShouldReturn201()
+            throws Exception {
         Equipment savedEquipment = new Equipment(
                 EquipmentType.HELMET,
                 "HELMET-001",
                 "Bauer hjälm"
         );
+
         savedEquipment.setId(1L);
 
         when(equipmentService.addEquipment(any()))
@@ -94,19 +119,37 @@ class AdminRestControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/api/admin/equipment")
-                        .contentType(APPLICATION_JSON)
-                        .content(json))
+        mockMvc.perform(
+                        post("/api/admin/equipment")
+                                .contentType(APPLICATION_JSON)
+                                .content(json)
+                )
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.type").value("HELMET"))
-                .andExpect(jsonPath("$.serialNumber").value("HELMET-001"))
-                .andExpect(jsonPath("$.description").value("Bauer hjälm"))
-                .andExpect(jsonPath("$.available").value(true));
+                .andExpect(
+                        jsonPath("$.id")
+                                .value(1L)
+                )
+                .andExpect(
+                        jsonPath("$.type")
+                                .value("HELMET")
+                )
+                .andExpect(
+                        jsonPath("$.serialNumber")
+                                .value("HELMET-001")
+                )
+                .andExpect(
+                        jsonPath("$.description")
+                                .value("Bauer hjälm")
+                )
+                .andExpect(
+                        jsonPath("$.available")
+                                .value(true)
+                );
     }
 
     @Test
-    void addEquipmentShouldReturn400WhenRequestIsInvalid() throws Exception {
+    void addEquipmentShouldReturn400WhenRequestIsInvalid()
+            throws Exception {
         String json = """
                 {
                   "type": null,
@@ -115,69 +158,67 @@ class AdminRestControllerTest {
                 }
                 """;
 
-        mockMvc.perform(post("/api/admin/equipment")
-                        .contentType(APPLICATION_JSON)
-                        .content(json))
+        mockMvc.perform(
+                        post("/api/admin/equipment")
+                                .contentType(APPLICATION_JSON)
+                                .content(json)
+                )
                 .andExpect(status().isBadRequest());
     }
 
     @Test
-    void getQrCodeShouldReturnQrCodeData() throws Exception {
+    void getQrCodeShouldReturnQrCodeData()
+            throws Exception {
         Equipment equipment = new Equipment(
                 EquipmentType.SKATES,
                 "SKATES-001",
                 "CCM skridskor"
         );
+
         equipment.setId(2L);
         equipment.setAvailable(true);
 
         when(equipmentService.getEquipmentById(2L))
                 .thenReturn(equipment);
 
-        mockMvc.perform(get("/api/admin/equipment/2/qr"))
+        mockMvc.perform(
+                        get("/api/admin/equipment/2/qr")
+                )
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.serialNumber").value("SKATES-001"))
-                .andExpect(jsonPath("$.type").value("SKATES"))
-                .andExpect(jsonPath("$.description").value("CCM skridskor"))
-                .andExpect(jsonPath("$.available").value(true))
-                .andExpect(jsonPath("$.loanUrl").value("http://localhost:5173/loan/SKATES-001"))
-                .andExpect(jsonPath("$.qrCodeBase64").isNotEmpty());
-    }
-
-    @Test
-    void markAsReturnedShouldReturnUpdatedEquipment() throws Exception {
-        Equipment equipment = new Equipment(
-                EquipmentType.HELMET,
-                "HELMET-001",
-                "Bauer hjälm"
-        );
-        equipment.setId(1L);
-        equipment.setAvailable(false);
-
-        Equipment returnedEquipment = new Equipment(
-                EquipmentType.HELMET,
-                "HELMET-001",
-                "Bauer hjälm"
-        );
-        returnedEquipment.setId(1L);
-        returnedEquipment.setAvailable(true);
-
-        when(equipmentService.getEquipmentById(1L))
-                .thenReturn(equipment);
-
-        when(loanService.markReturned(equipment))
-                .thenReturn(returnedEquipment);
-
-        mockMvc.perform(put("/api/admin/equipment/1/returned"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1L))
-                .andExpect(jsonPath("$.serialNumber").value("HELMET-001"))
-                .andExpect(jsonPath("$.available").value(true));
+                .andExpect(
+                        jsonPath("$.serialNumber")
+                                .value("SKATES-001")
+                )
+                .andExpect(
+                        jsonPath("$.type")
+                                .value("SKATES")
+                )
+                .andExpect(
+                        jsonPath("$.description")
+                                .value("CCM skridskor")
+                )
+                .andExpect(
+                        jsonPath("$.available")
+                                .value(true)
+                )
+                .andExpect(
+                        jsonPath("$.loanUrl")
+                                .value(
+                                        "http://localhost:5173/loan/SKATES-001"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.qrCodeBase64")
+                                .isNotEmpty()
+                );
     }
 
     private LocalValidatorFactoryBean validator() {
-        LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
+        LocalValidatorFactoryBean validator =
+                new LocalValidatorFactoryBean();
+
         validator.afterPropertiesSet();
+
         return validator;
     }
 }

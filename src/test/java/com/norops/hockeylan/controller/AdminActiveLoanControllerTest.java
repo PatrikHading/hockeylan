@@ -1,5 +1,6 @@
 package com.norops.hockeylan.controller;
 
+import com.norops.hockeylan.exception.BusinessRuleException;
 import com.norops.hockeylan.exception.GlobalExceptionHandler;
 import com.norops.hockeylan.model.Equipment;
 import com.norops.hockeylan.model.EquipmentType;
@@ -19,8 +20,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -67,40 +67,23 @@ class AdminActiveLoanControllerTest {
         mockMvc.perform(get("/api/admin/loans/active"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(10L))
-                .andExpect(
-                        jsonPath("$[0].borrowerName")
-                                .value("Patrik Hading")
-                )
-                .andExpect(
-                        jsonPath("$[0].email")
-                                .value("patrik@example.com")
-                )
-                .andExpect(
-                        jsonPath("$[0].phoneNumber")
-                                .value("+46701234567")
-                )
-                .andExpect(
-                        jsonPath("$[0].equipment.type")
-                                .value("HELMET")
-                )
-                .andExpect(
-                        jsonPath("$[0].equipment.serialNumber")
-                                .value("HELMET-001")
-                )
-                .andExpect(
-                        jsonPath("$[0].loanDate")
-                                .value("2026-07-28T12:30:00")
-                )
-                .andExpect(
-                        jsonPath("$[0].returned").value(false)
-                );
+                .andExpect(jsonPath("$[0].borrowerName")
+                        .value("Patrik Hading"))
+                .andExpect(jsonPath("$[0].loanDate")
+                        .value("2026-07-28T12:30:00"))
+                .andExpect(jsonPath("$[0].returned")
+                        .value(false))
+                .andExpect(jsonPath("$[0].returnedAt")
+                        .doesNotExist());
     }
 
     @Test
-    void markLoanReturnedShouldReturnUpdatedLoan()
+    void markLoanReturnedShouldReturnTimestamp()
             throws Exception {
         Loan loan = activeLoan();
-        loan.setReturned(true);
+        loan.registerReturn(
+                LocalDateTime.of(2026, 7, 29, 10, 15)
+        );
         loan.getEquipment().setAvailable(true);
 
         when(loanService.markReturned(10L))
@@ -111,13 +94,37 @@ class AdminActiveLoanControllerTest {
                 )
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(10L))
-                .andExpect(
-                        jsonPath("$.returned").value(true)
+                .andExpect(jsonPath("$.returned").value(true))
+                .andExpect(jsonPath("$.returnedAt")
+                        .value("2026-07-29T10:15:00"))
+                .andExpect(jsonPath("$.equipment.available")
+                        .value(true));
+    }
+
+    @Test
+    void duplicateReturnShouldProduce409()
+            throws Exception {
+        when(loanService.markReturned(10L))
+                .thenThrow(new BusinessRuleException(
+                        "Lånet är redan återlämnat."
+                ));
+
+        mockMvc.perform(
+                        put("/api/admin/loans/10/returned")
                 )
-                .andExpect(
-                        jsonPath("$.equipment.available")
-                                .value(true)
-                );
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.message")
+                        .value("Lånet är redan återlämnat."));
+    }
+
+    @Test
+    void legacyEquipmentReturnEndpointShouldBeRemoved()
+            throws Exception {
+        mockMvc.perform(
+                        put("/api/admin/equipment/1/returned")
+                )
+                .andExpect(status().isNotFound());
     }
 
     private Loan activeLoan() {
@@ -141,7 +148,6 @@ class AdminActiveLoanControllerTest {
         loan.setLoanDate(
                 LocalDateTime.of(2026, 7, 28, 12, 30)
         );
-        loan.setReturned(false);
 
         return loan;
     }

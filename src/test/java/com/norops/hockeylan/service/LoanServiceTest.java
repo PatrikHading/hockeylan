@@ -132,62 +132,6 @@ class LoanServiceTest {
         verify(loanRepository, never()).save(any());
     }
 
-    @Test
-    void markReturnedShouldMarkLoanReturnedAndEquipmentAvailable() {
-        Equipment equipment = new Equipment(
-                EquipmentType.HELMET,
-                "HELMET-001",
-                "Bauer hjälm"
-        );
-
-        equipment.setId(1L);
-        equipment.setAvailable(false);
-
-        Loan loan = new Loan(
-                equipment,
-                "Patrik Hading",
-                "patrik@example.com",
-                "+46701234567"
-        );
-
-        loan.setReturned(false);
-
-        when(loanRepository.findByEquipmentIdAndReturnedFalse(1L))
-                .thenReturn(Optional.of(loan));
-
-        when(equipmentRepository.save(equipment))
-                .thenReturn(equipment);
-
-        Equipment result = loanService.markReturned(equipment);
-
-        assertTrue(loan.isReturned());
-        assertTrue(result.isAvailable());
-
-        verify(loanRepository).save(loan);
-        verify(equipmentRepository).save(equipment);
-    }
-
-    @Test
-    void markReturnedShouldThrowWhenNoActiveLoanExists() {
-        Equipment equipment = new Equipment(
-                EquipmentType.HELMET,
-                "HELMET-001",
-                "Bauer hjälm"
-        );
-
-        equipment.setId(1L);
-
-        when(loanRepository.findByEquipmentIdAndReturnedFalse(1L))
-                .thenReturn(Optional.empty());
-
-        assertThrows(
-                BusinessRuleException.class,
-                () -> loanService.markReturned(equipment)
-        );
-
-        verify(loanRepository, never()).save(any());
-        verify(equipmentRepository, never()).save(any());
-    }
 
     private LoanFormDTO validLoanForm() {
         LoanFormDTO dto = new LoanFormDTO();

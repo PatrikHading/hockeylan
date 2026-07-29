@@ -9,6 +9,7 @@ public record AdminLoanResponseDTO(
         String email,
         String phoneNumber,
         LocalDateTime loanDate,
-        boolean returned
+        boolean returned,
+        LocalDateTime returnedAt
 ) {
 }

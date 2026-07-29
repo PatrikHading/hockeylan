@@ -11,25 +11,44 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
 
-public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
+public interface EquipmentRepository
+        extends JpaRepository<Equipment, Long> {
 
-    Optional<Equipment> findBySerialNumberIgnoreCase(String serialNumber);
+    Optional<Equipment> findBySerialNumberIgnoreCase(
+            String serialNumber
+    );
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
-            select e
-            from Equipment e
-            where lower(e.serialNumber) = lower(:serialNumber)
+            select equipment
+            from Equipment equipment
+            where lower(equipment.serialNumber) =
+                  lower(:serialNumber)
             """)
     Optional<Equipment> findBySerialNumberIgnoreCaseForUpdate(
             @Param("serialNumber") String serialNumber
     );
 
-    boolean existsBySerialNumberIgnoreCase(String serialNumber);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select equipment
+            from Equipment equipment
+            where equipment.id = :equipmentId
+            """)
+    Optional<Equipment> findByIdForUpdate(
+            @Param("equipmentId") Long equipmentId
+    );
+
+    boolean existsBySerialNumberIgnoreCase(
+            String serialNumber
+    );
 
     List<Equipment> findByAvailable(boolean available);
 
     List<Equipment> findByType(EquipmentType type);
 
-    List<Equipment> findByAvailableAndType(boolean available, EquipmentType type);
+    List<Equipment> findByAvailableAndType(
+            boolean available,
+            EquipmentType type
+    );
 }

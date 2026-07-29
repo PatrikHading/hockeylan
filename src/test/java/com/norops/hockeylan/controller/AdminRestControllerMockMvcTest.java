@@ -1,6 +1,5 @@
 package com.norops.hockeylan.controller;
 
-import com.norops.hockeylan.exception.BusinessRuleException;
 import com.norops.hockeylan.exception.DuplicateResourceException;
 import com.norops.hockeylan.exception.GlobalExceptionHandler;
 import com.norops.hockeylan.exception.ResourceNotFoundException;
@@ -23,7 +22,6 @@ import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -133,33 +131,6 @@ class AdminRestControllerMockMvcTest {
                 .andExpect(jsonPath("$.error").value("Not Found"))
                 .andExpect(jsonPath("$.message").value("Requested resource was not found."))
                 .andExpect(jsonPath("$.path").value("/api/admin/equipment/99/qr"));
-    }
-
-    @Test
-    void markAsReturnedShouldReturn409WhenNoActiveLoanExists() throws Exception {
-        Equipment equipment = new Equipment(
-                EquipmentType.HELMET,
-                "HELMET-001",
-                "Bauer hjälm"
-        );
-        equipment.setId(1L);
-        equipment.setAvailable(true);
-
-        when(equipmentService.getEquipmentById(1L))
-                .thenReturn(equipment);
-
-        when(loanService.markReturned(equipment))
-                .thenThrow(new BusinessRuleException(
-                        "Inget aktivt lån hittades för denna utrustning."
-                ));
-
-        mockMvc.perform(put("/api/admin/equipment/1/returned"))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.status").value(409))
-                .andExpect(jsonPath("$.error").value("Business Rule Violation"))
-                .andExpect(jsonPath("$.message")
-                        .value("Inget aktivt lån hittades för denna utrustning."))
-                .andExpect(jsonPath("$.path").value("/api/admin/equipment/1/returned"));
     }
 
     private LocalValidatorFactoryBean validator() {
