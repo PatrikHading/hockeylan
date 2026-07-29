@@ -15,6 +15,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
+import java.time.LocalDateTime;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -36,44 +38,64 @@ class LoanRestControllerTest {
     @BeforeEach
     void setUp() {
         LoanRestController controller =
-                new LoanRestController(equipmentService, loanService);
+                new LoanRestController(
+                        equipmentService,
+                        loanService
+                );
 
         mockMvc = MockMvcBuilders
                 .standaloneSetup(controller)
-                .setControllerAdvice(new GlobalExceptionHandler())
+                .setControllerAdvice(
+                        new GlobalExceptionHandler()
+                )
                 .setValidator(validator())
                 .build();
     }
 
     @Test
-    void getEquipmentForLoanShouldReturnEquipment() throws Exception {
+    void getEquipmentForLoanShouldReturnEquipment()
+            throws Exception {
         Equipment equipment = new Equipment(
                 EquipmentType.HELMET,
                 "HELMET-001",
                 "Bauer hjälm"
         );
+
         equipment.setId(1L);
         equipment.setAvailable(true);
 
-        when(equipmentService.getEquipmentBySerialNumber("HELMET-001"))
-                .thenReturn(equipment);
+        when(
+                equipmentService.getEquipmentBySerialNumber(
+                        "HELMET-001"
+                )
+        ).thenReturn(equipment);
 
         mockMvc.perform(get("/api/loan/HELMET-001"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1L))
                 .andExpect(jsonPath("$.type").value("HELMET"))
-                .andExpect(jsonPath("$.serialNumber").value("HELMET-001"))
-                .andExpect(jsonPath("$.description").value("Bauer hjälm"))
-                .andExpect(jsonPath("$.available").value(true));
+                .andExpect(
+                        jsonPath("$.serialNumber")
+                                .value("HELMET-001")
+                )
+                .andExpect(
+                        jsonPath("$.description")
+                                .value("Bauer hjälm")
+                )
+                .andExpect(
+                        jsonPath("$.available").value(true)
+                );
     }
 
     @Test
-    void registerLoanShouldReturn201() throws Exception {
+    void registerLoanShouldReturn201WithoutPersonalData()
+            throws Exception {
         Equipment equipment = new Equipment(
                 EquipmentType.HELMET,
                 "HELMET-001",
                 "Bauer hjälm"
         );
+
         equipment.setId(1L);
 
         Loan loan = new Loan(
@@ -82,10 +104,18 @@ class LoanRestControllerTest {
                 "patrik@example.com",
                 "+46701234567"
         );
-        loan.setId(10L);
 
-        when(loanService.registerLoan(eq("HELMET-001"), any()))
-                .thenReturn(loan);
+        loan.setId(10L);
+        loan.setLoanDate(
+                LocalDateTime.of(2026, 7, 28, 12, 30)
+        );
+
+        when(
+                loanService.registerLoan(
+                        eq("HELMET-001"),
+                        any()
+                )
+        ).thenReturn(loan);
 
         String json = """
                 {
@@ -100,14 +130,31 @@ class LoanRestControllerTest {
                         .content(json))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(10L))
-                .andExpect(jsonPath("$.borrowerName").value("Patrik Hading"))
-                .andExpect(jsonPath("$.email").value("patrik@example.com"))
-                .andExpect(jsonPath("$.phoneNumber").value("+46701234567"))
-                .andExpect(jsonPath("$.returned").value(false));
+                .andExpect(
+                        jsonPath("$.equipment.serialNumber")
+                                .value("HELMET-001")
+                )
+                .andExpect(
+                        jsonPath("$.loanDate")
+                                .value("2026-07-28T12:30:00")
+                )
+                .andExpect(
+                        jsonPath("$.returned").value(false)
+                )
+                .andExpect(
+                        jsonPath("$.borrowerName").doesNotExist()
+                )
+                .andExpect(
+                        jsonPath("$.email").doesNotExist()
+                )
+                .andExpect(
+                        jsonPath("$.phoneNumber").doesNotExist()
+                );
     }
 
     @Test
-    void registerLoanShouldReturn400WhenRequestIsInvalid() throws Exception {
+    void registerLoanShouldReturn400WhenRequestIsInvalid()
+            throws Exception {
         String json = """
                 {
                   "borrowerName": "",
@@ -123,8 +170,11 @@ class LoanRestControllerTest {
     }
 
     private LocalValidatorFactoryBean validator() {
-        LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
+        LocalValidatorFactoryBean validator =
+                new LocalValidatorFactoryBean();
+
         validator.afterPropertiesSet();
+
         return validator;
     }
 }

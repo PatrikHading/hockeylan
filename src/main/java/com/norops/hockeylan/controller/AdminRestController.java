@@ -1,10 +1,13 @@
 package com.norops.hockeylan.controller;
 
+import com.norops.hockeylan.dto.AdminLoanResponseDTO;
 import com.norops.hockeylan.dto.EquipmentDTO;
 import com.norops.hockeylan.dto.EquipmentResponseDTO;
 import com.norops.hockeylan.dto.QrCodeResponseDTO;
 import com.norops.hockeylan.mapper.EquipmentMapper;
+import com.norops.hockeylan.mapper.LoanMapper;
 import com.norops.hockeylan.model.Equipment;
+import com.norops.hockeylan.model.Loan;
 import com.norops.hockeylan.service.EquipmentService;
 import com.norops.hockeylan.service.LoanService;
 import com.norops.hockeylan.util.QrCodeUtil;
@@ -34,18 +37,23 @@ public class AdminRestController {
     private String qrBaseUrl;
 
     @GetMapping("/equipment")
-    public ResponseEntity<List<EquipmentResponseDTO>> getAllEquipment() {
-        List<EquipmentResponseDTO> response = equipmentService.getAllEquipment()
-                .stream()
-                .map(EquipmentMapper::toResponseDTO)
-                .toList();
+    public ResponseEntity<List<EquipmentResponseDTO>>
+    getAllEquipment() {
+        List<EquipmentResponseDTO> response =
+                equipmentService.getAllEquipment()
+                        .stream()
+                        .map(EquipmentMapper::toResponseDTO)
+                        .toList();
 
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/equipment")
-    public ResponseEntity<EquipmentResponseDTO> addEquipment(@Valid @RequestBody EquipmentDTO equipmentDTO) {
-        Equipment equipment = equipmentService.addEquipment(equipmentDTO);
+    public ResponseEntity<EquipmentResponseDTO> addEquipment(
+            @Valid @RequestBody EquipmentDTO equipmentDTO
+    ) {
+        Equipment equipment =
+                equipmentService.addEquipment(equipmentDTO);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -53,16 +61,22 @@ public class AdminRestController {
     }
 
     @GetMapping("/equipment/{id}/qr")
-    public ResponseEntity<QrCodeResponseDTO> getQrCode(@PathVariable Long id) {
-        Equipment equipment = equipmentService.getEquipmentById(id);
+    public ResponseEntity<QrCodeResponseDTO> getQrCode(
+            @PathVariable Long id
+    ) {
+        Equipment equipment =
+                equipmentService.getEquipmentById(id);
 
         String encodedSerialNumber = UriUtils.encodePathSegment(
                 equipment.getSerialNumber(),
                 StandardCharsets.UTF_8
         );
 
-        String frontendBaseUrl = removeTrailingSlash(qrBaseUrl);
-        String loanUrl = frontendBaseUrl + "/loan/" + encodedSerialNumber;
+        String frontendBaseUrl =
+                removeTrailingSlash(qrBaseUrl);
+
+        String loanUrl =
+                frontendBaseUrl + "/loan/" + encodedSerialNumber;
 
         String qrCodeBase64 = QrCodeUtil.generateQrCodeBase64(
                 loanUrl,
@@ -82,12 +96,43 @@ public class AdminRestController {
         return ResponseEntity.ok(response);
     }
 
-    @PutMapping("/equipment/{id}/returned")
-    public ResponseEntity<EquipmentResponseDTO> markAsReturned(@PathVariable Long id) {
-        Equipment equipment = equipmentService.getEquipmentById(id);
-        Equipment returnedEquipment = loanService.markReturned(equipment);
+    @GetMapping("/loans/active")
+    public ResponseEntity<List<AdminLoanResponseDTO>>
+    getActiveLoans() {
+        List<AdminLoanResponseDTO> response =
+                loanService.getActiveLoans()
+                        .stream()
+                        .map(LoanMapper::toAdminResponseDTO)
+                        .toList();
 
-        return ResponseEntity.ok(EquipmentMapper.toResponseDTO(returnedEquipment));
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/loans/{loanId}/returned")
+    public ResponseEntity<AdminLoanResponseDTO> markLoanReturned(
+            @PathVariable Long loanId
+    ) {
+        Loan returnedLoan =
+                loanService.markReturned(loanId);
+
+        return ResponseEntity.ok(
+                LoanMapper.toAdminResponseDTO(returnedLoan)
+        );
+    }
+
+    @PutMapping("/equipment/{id}/returned")
+    public ResponseEntity<EquipmentResponseDTO> markAsReturned(
+            @PathVariable Long id
+    ) {
+        Equipment equipment =
+                equipmentService.getEquipmentById(id);
+
+        Equipment returnedEquipment =
+                loanService.markReturned(equipment);
+
+        return ResponseEntity.ok(
+                EquipmentMapper.toResponseDTO(returnedEquipment)
+        );
     }
 
     private String removeTrailingSlash(String url) {

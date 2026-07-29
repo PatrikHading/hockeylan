@@ -33,14 +33,30 @@ function Layout() {
                     <nav aria-label="Huvudnavigation">
                         <ul className="flex flex-wrap items-center gap-2">
                             <li>
-                                <NavLink to="/" className={navLinkClass}>
+                                <NavLink
+                                    to="/"
+                                    className={navLinkClass}
+                                >
                                     Start
                                 </NavLink>
                             </li>
 
                             <li>
-                                <NavLink to="/admin" className={navLinkClass}>
-                                    Admin
+                                <NavLink
+                                    to="/admin"
+                                    end
+                                    className={navLinkClass}
+                                >
+                                    Utrustning
+                                </NavLink>
+                            </li>
+
+                            <li>
+                                <NavLink
+                                    to="/admin/loans"
+                                    className={navLinkClass}
+                                >
+                                    Aktiva lån
                                 </NavLink>
                             </li>
                         </ul>

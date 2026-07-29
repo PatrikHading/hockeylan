@@ -21,35 +21,53 @@ import java.util.List;
 @Transactional
 public class LoanService {
 
-    private static final Logger log = LoggerFactory.getLogger(LoanService.class);
+    private static final Logger log =
+            LoggerFactory.getLogger(LoanService.class);
 
     private final LoanRepository loanRepository;
     private final EquipmentRepository equipmentRepository;
 
-    public Loan registerLoan(String serialNumber, LoanFormDTO loanFormDTO) {
+    public Loan registerLoan(
+            String serialNumber,
+            LoanFormDTO loanFormDTO
+    ) {
         validateLoanForm(loanFormDTO);
 
-        String sanitizedSerialNumber = InputSanitizer.cleanSerialNumber(serialNumber);
+        String sanitizedSerialNumber =
+                InputSanitizer.cleanSerialNumber(serialNumber);
 
         Equipment equipment = equipmentRepository
-                .findBySerialNumberIgnoreCaseForUpdate(sanitizedSerialNumber)
+                .findBySerialNumberIgnoreCaseForUpdate(
+                        sanitizedSerialNumber
+                )
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Equipment not found with serial number: " + sanitizedSerialNumber
+                        "Equipment not found with serial number: "
+                                + sanitizedSerialNumber
                 ));
 
         if (!equipment.isAvailable()) {
-            throw new BusinessRuleException("Utrustningen är redan utlånad.");
+            throw new BusinessRuleException(
+                    "Utrustningen är redan utlånad."
+            );
         }
 
         if (loanRepository.existsByEquipmentAndReturnedFalse(equipment)) {
-            throw new BusinessRuleException("Utrustningen har redan ett aktivt lån.");
+            throw new BusinessRuleException(
+                    "Utrustningen har redan ett aktivt lån."
+            );
         }
 
         Loan loan = new Loan(
                 equipment,
-                InputSanitizer.cleanText(loanFormDTO.getBorrowerName()),
-                InputSanitizer.cleanEmail(loanFormDTO.getEmail()),
-                InputSanitizer.cleanPhoneNumber(loanFormDTO.getPhoneNumber())
+                InputSanitizer.cleanText(
+                        loanFormDTO.getBorrowerName()
+                ),
+                InputSanitizer.cleanEmail(
+                        loanFormDTO.getEmail()
+                ),
+                InputSanitizer.cleanPhoneNumber(
+                        loanFormDTO.getPhoneNumber()
+                )
         );
 
         equipment.setAvailable(false);
@@ -68,47 +86,87 @@ public class LoanService {
 
     @Transactional(readOnly = true)
     public List<Loan> getActiveLoans() {
-        return loanRepository.findByReturnedFalse();
+        return loanRepository.findByReturnedFalseOrderByLoanDateAsc();
+    }
+
+    public Loan markReturned(Long loanId) {
+        Loan activeLoan = loanRepository
+                .findByIdAndReturnedFalse(loanId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Active loan not found with id: " + loanId
+                ));
+
+        completeReturn(activeLoan);
+
+        return activeLoan;
     }
 
     public Equipment markReturned(Equipment equipment) {
-        Loan activeLoan = loanRepository.findByEquipmentIdAndReturnedFalse(equipment.getId())
-                .orElseThrow(() -> new BusinessRuleException("Inget aktivt lån hittades för denna utrustning."));
+        Loan activeLoan = loanRepository
+                .findByEquipmentIdAndReturnedFalse(equipment.getId())
+                .orElseThrow(() -> new BusinessRuleException(
+                        "Inget aktivt lån hittades för denna utrustning."
+                ));
 
+        completeReturn(activeLoan);
+
+        return activeLoan.getEquipment();
+    }
+
+    private void completeReturn(Loan activeLoan) {
         if (activeLoan.isReturned()) {
-            throw new BusinessRuleException("Lånet är redan återlämnat.");
+            throw new BusinessRuleException(
+                    "Lånet är redan återlämnat."
+            );
         }
+
+        Equipment equipment = activeLoan.getEquipment();
 
         activeLoan.setReturned(true);
         equipment.setAvailable(true);
 
         loanRepository.save(activeLoan);
-        Equipment savedEquipment = equipmentRepository.save(equipment);
+        equipmentRepository.save(equipment);
 
         log.info(
                 "Marked loan {} as returned for equipment with serial number {}",
                 activeLoan.getId(),
                 equipment.getSerialNumber()
         );
-
-        return savedEquipment;
     }
 
     private void validateLoanForm(LoanFormDTO loanFormDTO) {
         if (loanFormDTO == null) {
-            throw new BusinessRuleException("Låneformulär saknas.");
+            throw new BusinessRuleException(
+                    "Låneformulär saknas."
+            );
         }
 
-        if (loanFormDTO.getBorrowerName() == null || loanFormDTO.getBorrowerName().isBlank()) {
-            throw new BusinessRuleException("Namn måste anges.");
+        if (
+                loanFormDTO.getBorrowerName() == null
+                        || loanFormDTO.getBorrowerName().isBlank()
+        ) {
+            throw new BusinessRuleException(
+                    "Namn måste anges."
+            );
         }
 
-        if (loanFormDTO.getEmail() == null || loanFormDTO.getEmail().isBlank()) {
-            throw new BusinessRuleException("E-post måste anges.");
+        if (
+                loanFormDTO.getEmail() == null
+                        || loanFormDTO.getEmail().isBlank()
+        ) {
+            throw new BusinessRuleException(
+                    "E-post måste anges."
+            );
         }
 
-        if (loanFormDTO.getPhoneNumber() == null || loanFormDTO.getPhoneNumber().isBlank()) {
-            throw new BusinessRuleException("Telefonnummer måste anges.");
+        if (
+                loanFormDTO.getPhoneNumber() == null
+                        || loanFormDTO.getPhoneNumber().isBlank()
+        ) {
+            throw new BusinessRuleException(
+                    "Telefonnummer måste anges."
+            );
         }
     }
 }

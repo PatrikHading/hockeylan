@@ -7,16 +7,16 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.springframework.mock.web.MockHttpSession;
-import org.springframework.test.web.servlet.MvcResult;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -51,33 +51,54 @@ class SecurityIntegrationTest {
         adminRepository.saveAndFlush(
                 new Admin(
                         "test-admin",
-                        passwordEncoder.encode("StrongTestPassword-123!")
+                        passwordEncoder.encode(
+                                "StrongTestPassword-123!"
+                        )
                 )
         );
     }
 
     @Test
-    void publicEquipmentEndpointRemainsAccessible() throws Exception {
+    void publicEquipmentEndpointRemainsAccessible()
+            throws Exception {
         mockMvc.perform(get("/api/equipment/types"))
                 .andExpect(status().isOk());
     }
 
     @Test
-    void publicLoanEndpointIsNotRejectedAsUnauthorized() throws Exception {
+    void publicLoanEndpointIsNotRejectedAsUnauthorized()
+            throws Exception {
         mockMvc.perform(get("/api/loan/UNKNOWN"))
                 .andExpect(status().isNotFound());
     }
 
     @Test
-    void anonymousAdminRequestReturns401() throws Exception {
+    void anonymousAdminEquipmentRequestReturns401()
+            throws Exception {
         mockMvc.perform(get("/api/admin/equipment"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.status").value(401))
-                .andExpect(jsonPath("$.error").value("Unauthorized"));
+                .andExpect(
+                        jsonPath("$.error")
+                                .value("Unauthorized")
+                );
     }
 
     @Test
-    void loginWithoutCsrfReturns403() throws Exception {
+    void anonymousActiveLoanRequestReturns401()
+            throws Exception {
+        mockMvc.perform(get("/api/admin/loans/active"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(
+                        jsonPath("$.error")
+                                .value("Unauthorized")
+                );
+    }
+
+    @Test
+    void loginWithoutCsrfReturns403()
+            throws Exception {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -90,7 +111,8 @@ class SecurityIntegrationTest {
     }
 
     @Test
-    void invalidCredentialsReturn401() throws Exception {
+    void invalidCredentialsReturn401()
+            throws Exception {
         mockMvc.perform(post("/api/auth/login")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -101,12 +123,15 @@ class SecurityIntegrationTest {
                                 }
                                 """))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message")
-                        .value("Invalid username or password."));
+                .andExpect(
+                        jsonPath("$.message")
+                                .value("Invalid username or password.")
+                );
     }
 
     @Test
-    void authenticatedSessionCanAccessAdminEndpoint() throws Exception {
+    void authenticatedSessionCanAccessAdminEquipmentEndpoint()
+            throws Exception {
         MockHttpSession session = login();
 
         mockMvc.perform(get("/api/admin/equipment")
@@ -115,7 +140,19 @@ class SecurityIntegrationTest {
     }
 
     @Test
-    void logoutInvalidatesAdministratorSession() throws Exception {
+    void authenticatedSessionCanAccessActiveLoansEndpoint()
+            throws Exception {
+        MockHttpSession session = login();
+
+        mockMvc.perform(get("/api/admin/loans/active")
+                        .session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().json("[]"));
+    }
+
+    @Test
+    void logoutInvalidatesAdministratorSession()
+            throws Exception {
         MockHttpSession session = login();
 
         mockMvc.perform(post("/api/auth/logout")
@@ -130,19 +167,28 @@ class SecurityIntegrationTest {
     }
 
     private MockHttpSession login() throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/auth/login")
-                        .with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                            {
-                              "username": "test-admin",
-                              "password": "StrongTestPassword-123!"
-                            }
-                            """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.authenticated").value(true))
-                .andExpect(jsonPath("$.username").value("test-admin"))
-                .andReturn();
+        MvcResult result =
+                mockMvc.perform(post("/api/auth/login")
+                                .with(csrf())
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content("""
+                                        {
+                                          "username": "test-admin",
+                                          "password": "StrongTestPassword-123!"
+                                        }
+                                        """))
+                        .andExpect(status().isOk())
+                        .andExpect(
+                                jsonPath("$.authenticated")
+                                        .value(true)
+                        )
+                        .andExpect(
+                                jsonPath("$.username")
+                                        .value("test-admin")
+                        )
+                        .andReturn();
 
         return (MockHttpSession) result
                 .getRequest()

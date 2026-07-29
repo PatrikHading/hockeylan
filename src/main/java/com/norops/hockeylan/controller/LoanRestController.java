@@ -24,10 +24,17 @@ public class LoanRestController {
     private final LoanService loanService;
 
     @GetMapping("/{serialNumber}")
-    public ResponseEntity<EquipmentResponseDTO> getEquipmentforLoan(@PathVariable String serialNumber) {
-        Equipment equipment = equipmentService.getEquipmentBySerialNumber(serialNumber);
+    public ResponseEntity<EquipmentResponseDTO> getEquipmentForLoan(
+            @PathVariable String serialNumber
+    ) {
+        Equipment equipment =
+                equipmentService.getEquipmentBySerialNumber(
+                        serialNumber
+                );
 
-        return ResponseEntity.ok(EquipmentMapper.toResponseDTO(equipment));
+        return ResponseEntity.ok(
+                EquipmentMapper.toResponseDTO(equipment)
+        );
     }
 
     @PostMapping("/{serialNumber}")
@@ -35,11 +42,13 @@ public class LoanRestController {
             @PathVariable String serialNumber,
             @Valid @RequestBody LoanFormDTO loanFormDTO
     ) {
-        Loan loan = loanService.registerLoan(serialNumber, loanFormDTO);
+        Loan loan = loanService.registerLoan(
+                serialNumber,
+                loanFormDTO
+        );
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(LoanMapper.toResponseDTO(loan));
+                .body(LoanMapper.toPublicResponseDTO(loan));
     }
-
 }
