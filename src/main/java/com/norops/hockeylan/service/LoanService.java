@@ -22,6 +22,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -55,11 +56,30 @@ public class LoanService {
     private final EquipmentRepository
             equipmentRepository;
 
+    private final Clock applicationClock;
+
     public Loan registerLoan(
             String serialNumber,
             LoanFormDTO loanFormDTO
     ) {
-        validateLoanForm(loanFormDTO);
+        validateLoanForm(
+                loanFormDTO
+        );
+
+        LocalDateTime registrationTime =
+                LocalDateTime.now(
+                        applicationClock
+                );
+
+        LocalDate registrationDate =
+                registrationTime
+                        .toLocalDate();
+
+        validateExpectedReturnDate(
+                loanFormDTO
+                        .getExpectedReturnDate(),
+                registrationDate
+        );
 
         String sanitizedSerialNumber =
                 InputSanitizer
@@ -80,28 +100,9 @@ public class LoanService {
                                         )
                         );
 
-        if (!equipment.isActive()) {
-            throw new BusinessRuleException(
-                    "Utrustningen är inaktiverad och kan inte lånas."
-            );
-        }
-
-        if (!equipment.isAvailable()) {
-            throw new BusinessRuleException(
-                    "Utrustningen är redan utlånad."
-            );
-        }
-
-        if (
-                loanRepository
-                        .existsByEquipmentAndReturnedFalse(
-                                equipment
-                        )
-        ) {
-            throw new BusinessRuleException(
-                    "Utrustningen har redan ett aktivt lån."
-            );
-        }
+        validateEquipmentCanBeLoaned(
+                equipment
+        );
 
         Loan loan = new Loan(
                 equipment,
@@ -110,28 +111,39 @@ public class LoanService {
                                 .getBorrowerName()
                 ),
                 InputSanitizer.cleanEmail(
-                        loanFormDTO.getEmail()
+                        loanFormDTO
+                                .getEmail()
                 ),
                 InputSanitizer
                         .cleanPhoneNumber(
                                 loanFormDTO
                                         .getPhoneNumber()
-                        )
+                        ),
+                loanFormDTO
+                        .getExpectedReturnDate()
+        );
+
+        loan.setLoanDate(
+                registrationTime
         );
 
         equipment.setAvailable(false);
 
         Loan savedLoan =
-                loanRepository.save(loan);
+                loanRepository.save(
+                        loan
+                );
 
         equipmentRepository.save(
                 equipment
         );
 
         log.info(
-                "Registered loan with id {} for equipment serial number {}",
+                "Registered loan with id {} for equipment {} with expected return date {}",
                 savedLoan.getId(),
-                equipment.getSerialNumber()
+                equipment.getSerialNumber(),
+                savedLoan
+                        .getExpectedReturnDate()
         );
 
         return savedLoan;
@@ -182,6 +194,11 @@ public class LoanService {
                         borrower
                 );
 
+        LocalDate currentDate =
+                LocalDate.now(
+                        applicationClock
+                );
+
         Specification<Loan> specification =
                 buildHistorySpecification(
                         effectiveStatus,
@@ -189,7 +206,8 @@ public class LoanService {
                         toExclusive,
                         normalizedSerialNumber,
                         equipmentType,
-                        normalizedBorrower
+                        normalizedBorrower,
+                        currentDate
                 );
 
         PageRequest pageRequest =
@@ -244,16 +262,22 @@ public class LoanService {
                                         )
                         );
 
-        loan.setEquipment(equipment);
+        loan.setEquipment(
+                equipment
+        );
 
         loan.registerReturn(
-                LocalDateTime.now()
+                LocalDateTime.now(
+                        applicationClock
+                )
         );
 
         equipment.setAvailable(true);
 
         Loan savedLoan =
-                loanRepository.save(loan);
+                loanRepository.save(
+                        loan
+                );
 
         equipmentRepository.save(
                 equipment
@@ -269,6 +293,33 @@ public class LoanService {
         return savedLoan;
     }
 
+    private void validateEquipmentCanBeLoaned(
+            Equipment equipment
+    ) {
+        if (!equipment.isActive()) {
+            throw new BusinessRuleException(
+                    "Utrustningen är inaktiverad och kan inte lånas."
+            );
+        }
+
+        if (!equipment.isAvailable()) {
+            throw new BusinessRuleException(
+                    "Utrustningen är redan utlånad."
+            );
+        }
+
+        if (
+                loanRepository
+                        .existsByEquipmentAndReturnedFalse(
+                                equipment
+                        )
+        ) {
+            throw new BusinessRuleException(
+                    "Utrustningen har redan ett aktivt lån."
+            );
+        }
+    }
+
     private Specification<Loan>
     buildHistorySpecification(
             LoanHistoryStatus status,
@@ -276,7 +327,8 @@ public class LoanService {
             LocalDateTime toExclusive,
             String serialNumber,
             EquipmentType equipmentType,
-            String borrower
+            String borrower,
+            LocalDate currentDate
     ) {
         return (
                 root,
@@ -312,6 +364,20 @@ public class LoanService {
                                         "returned"
                                 ),
                                 returnedValue
+                        )
+                );
+            }
+
+            if (
+                    status
+                            .requiresOverdueFilter()
+            ) {
+                predicates.add(
+                        criteriaBuilder.lessThan(
+                                root.get(
+                                        "expectedReturnDate"
+                                ),
+                                currentDate
                         )
                 );
             }
@@ -464,7 +530,9 @@ public class LoanService {
         }
 
         return InputSanitizer
-                .cleanText(normalized)
+                .cleanText(
+                        normalized
+                )
                 .toLowerCase(
                         Locale.ROOT
                 );
@@ -487,9 +555,18 @@ public class LoanService {
             String value
     ) {
         return value
-                .replace("\\", "\\\\")
-                .replace("%", "\\%")
-                .replace("_", "\\_");
+                .replace(
+                        "\\",
+                        "\\\\"
+                )
+                .replace(
+                        "%",
+                        "\\%"
+                )
+                .replace(
+                        "_",
+                        "\\_"
+                );
     }
 
     private void validateLoanForm(
@@ -536,6 +613,31 @@ public class LoanService {
         ) {
             throw new BusinessRuleException(
                     "Telefonnummer måste anges."
+            );
+        }
+
+        if (
+                loanFormDTO
+                        .getExpectedReturnDate()
+                        == null
+        ) {
+            throw new BusinessRuleException(
+                    "Förväntat återlämningsdatum måste anges."
+            );
+        }
+    }
+
+    private void validateExpectedReturnDate(
+            LocalDate expectedReturnDate,
+            LocalDate registrationDate
+    ) {
+        if (
+                expectedReturnDate.isBefore(
+                        registrationDate
+                )
+        ) {
+            throw new BusinessRuleException(
+                    "Förväntat återlämningsdatum får inte ligga före utlåningsdatumet."
             );
         }
     }

@@ -8,12 +8,16 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+
 import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 
@@ -21,10 +25,15 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
 
     private static final Logger log =
-            LoggerFactory.getLogger(GlobalExceptionHandler.class);
+            LoggerFactory.getLogger(
+                    GlobalExceptionHandler.class
+            );
 
-    @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ApiErrorResponse> handleNotFound(
+    @ExceptionHandler(
+            ResourceNotFoundException.class
+    )
+    public ResponseEntity<ApiErrorResponse>
+    handleNotFound(
             ResourceNotFoundException ex,
             HttpServletRequest request
     ) {
@@ -36,8 +45,11 @@ public class GlobalExceptionHandler {
         );
     }
 
-    @ExceptionHandler(DuplicateResourceException.class)
-    public ResponseEntity<ApiErrorResponse> handleDuplicateResource(
+    @ExceptionHandler(
+            DuplicateResourceException.class
+    )
+    public ResponseEntity<ApiErrorResponse>
+    handleDuplicateResource(
             DuplicateResourceException ex,
             HttpServletRequest request
     ) {
@@ -49,8 +61,11 @@ public class GlobalExceptionHandler {
         );
     }
 
-    @ExceptionHandler(BusinessRuleException.class)
-    public ResponseEntity<ApiErrorResponse> handleBusinessRule(
+    @ExceptionHandler(
+            BusinessRuleException.class
+    )
+    public ResponseEntity<ApiErrorResponse>
+    handleBusinessRule(
             BusinessRuleException ex,
             HttpServletRequest request
     ) {
@@ -66,7 +81,8 @@ public class GlobalExceptionHandler {
             IllegalArgumentException.class,
             IllegalStateException.class
     })
-    public ResponseEntity<ApiErrorResponse> handleBadRequest(
+    public ResponseEntity<ApiErrorResponse>
+    handleBadRequest(
             RuntimeException ex,
             HttpServletRequest request
     ) {
@@ -78,16 +94,29 @@ public class GlobalExceptionHandler {
         );
     }
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiErrorResponse> handleValidation(
+    @ExceptionHandler(
+            MethodArgumentNotValidException.class
+    )
+    public ResponseEntity<ApiErrorResponse>
+    handleValidation(
             MethodArgumentNotValidException ex,
             HttpServletRequest request
     ) {
-        String message = ex.getBindingResult()
-                .getFieldErrors()
-                .stream()
-                .map(error -> error.getField() + ": " + error.getDefaultMessage())
-                .collect(Collectors.joining(", "));
+        String message =
+                ex.getBindingResult()
+                        .getFieldErrors()
+                        .stream()
+                        .map(
+                                error ->
+                                        error.getField()
+                                                + ": "
+                                                + error
+                                                .getDefaultMessage()
+                        )
+                        .collect(
+                                Collectors
+                                        .joining(", ")
+                        );
 
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
@@ -97,8 +126,27 @@ public class GlobalExceptionHandler {
         );
     }
 
-    @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<ApiErrorResponse> handleConstraintViolation(
+    @ExceptionHandler(
+            HandlerMethodValidationException.class
+    )
+    public ResponseEntity<ApiErrorResponse>
+    handleMethodValidation(
+            HandlerMethodValidationException ex,
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                "Validation Error",
+                "One or more request parameters are invalid.",
+                request
+        );
+    }
+
+    @ExceptionHandler(
+            ConstraintViolationException.class
+    )
+    public ResponseEntity<ApiErrorResponse>
+    handleConstraintViolation(
             ConstraintViolationException ex,
             HttpServletRequest request
     ) {
@@ -110,8 +158,27 @@ public class GlobalExceptionHandler {
         );
     }
 
-    @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ApiErrorResponse> handleUnreadableMessage(
+    @ExceptionHandler(
+            MethodArgumentTypeMismatchException.class
+    )
+    public ResponseEntity<ApiErrorResponse>
+    handleTypeMismatch(
+            MethodArgumentTypeMismatchException ex,
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                "Invalid Parameter",
+                "One or more request parameters contain invalid values.",
+                request
+        );
+    }
+
+    @ExceptionHandler(
+            HttpMessageNotReadableException.class
+    )
+    public ResponseEntity<ApiErrorResponse>
+    handleUnreadableMessage(
             HttpMessageNotReadableException ex,
             HttpServletRequest request
     ) {
@@ -123,12 +190,35 @@ public class GlobalExceptionHandler {
         );
     }
 
-    @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<ApiErrorResponse> handleDataIntegrityViolation(
+    @ExceptionHandler(
+            HttpRequestMethodNotSupportedException.class
+    )
+    public ResponseEntity<ApiErrorResponse>
+    handleMethodNotSupported(
+            HttpRequestMethodNotSupportedException ex,
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.METHOD_NOT_ALLOWED,
+                "Method Not Allowed",
+                "The requested HTTP method is not supported for this endpoint.",
+                request
+        );
+    }
+
+    @ExceptionHandler(
+            DataIntegrityViolationException.class
+    )
+    public ResponseEntity<ApiErrorResponse>
+    handleDataIntegrityViolation(
             DataIntegrityViolationException ex,
             HttpServletRequest request
     ) {
-        log.warn("Database constraint violation on path: {}", request.getRequestURI(), ex);
+        log.warn(
+                "Database constraint violation on path: {}",
+                request.getRequestURI(),
+                ex
+        );
 
         return buildResponse(
                 HttpStatus.CONFLICT,
@@ -138,8 +228,11 @@ public class GlobalExceptionHandler {
         );
     }
 
-    @ExceptionHandler(AuthenticationException.class)
-    public ResponseEntity<ApiErrorResponse> handleAuthenticationFailure(
+    @ExceptionHandler(
+            AuthenticationException.class
+    )
+    public ResponseEntity<ApiErrorResponse>
+    handleAuthenticationFailure(
             AuthenticationException ex,
             HttpServletRequest request
     ) {
@@ -155,7 +248,8 @@ public class GlobalExceptionHandler {
             NoHandlerFoundException.class,
             NoResourceFoundException.class
     })
-    public ResponseEntity<ApiErrorResponse> handleEndpointNotFound(
+    public ResponseEntity<ApiErrorResponse>
+    handleEndpointNotFound(
             Exception ex,
             HttpServletRequest request
     ) {
@@ -168,11 +262,16 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiErrorResponse> handleGenericException(
+    public ResponseEntity<ApiErrorResponse>
+    handleGenericException(
             Exception ex,
             HttpServletRequest request
     ) {
-        log.error("Unexpected error on path: {}", request.getRequestURI(), ex);
+        log.error(
+                "Unexpected error on path: {}",
+                request.getRequestURI(),
+                ex
+        );
 
         return buildResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR,
@@ -182,20 +281,24 @@ public class GlobalExceptionHandler {
         );
     }
 
-    private ResponseEntity<ApiErrorResponse> buildResponse(
+    private ResponseEntity<ApiErrorResponse>
+    buildResponse(
             HttpStatus status,
             String error,
             String message,
             HttpServletRequest request
     ) {
-        ApiErrorResponse response = new ApiErrorResponse(
-                LocalDateTime.now(),
-                status.value(),
-                error,
-                message,
-                request.getRequestURI()
-        );
+        ApiErrorResponse response =
+                new ApiErrorResponse(
+                        LocalDateTime.now(),
+                        status.value(),
+                        error,
+                        message,
+                        request.getRequestURI()
+                );
 
-        return ResponseEntity.status(status).body(response);
+        return ResponseEntity
+                .status(status)
+                .body(response);
     }
 }

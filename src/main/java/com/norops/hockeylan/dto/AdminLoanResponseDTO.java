@@ -1,5 +1,6 @@
 package com.norops.hockeylan.dto;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public record AdminLoanResponseDTO(
@@ -9,7 +10,10 @@ public record AdminLoanResponseDTO(
         String email,
         String phoneNumber,
         LocalDateTime loanDate,
+        LocalDate expectedReturnDate,
         boolean returned,
-        LocalDateTime returnedAt
+        LocalDateTime returnedAt,
+        boolean overdue,
+        boolean returnedLate
 ) {
 }

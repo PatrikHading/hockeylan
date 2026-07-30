@@ -35,10 +35,52 @@ const availableEquipment = {
     model: "Re-Akt 150",
     condition: "GOOD",
     ageCategory: "JUNIOR",
+    storageLocation: "Hylla A2",
     description: "Svart hjälm",
     available: true,
     active: true,
 };
+
+function futureDate() {
+    const date = new Date();
+
+    date.setFullYear(
+        date.getFullYear() + 1
+    );
+
+    return [
+        date.getFullYear(),
+        String(
+            date.getMonth() + 1
+        ).padStart(2, "0"),
+        String(
+            date.getDate()
+        ).padStart(2, "0"),
+    ].join("-");
+}
+
+function registeredLoan(
+    expectedReturnDate
+) {
+    return {
+        id: 10,
+        borrowerName:
+            "Patrik Hading",
+        email:
+            "patrik@example.com",
+        phoneNumber:
+            "+46701234567",
+        loanDate:
+            "2026-07-30T12:00:00",
+        expectedReturnDate,
+        returned: false,
+        returnedAt: null,
+        overdue: false,
+        returnedLate: false,
+        equipment:
+        availableEquipment,
+    };
+}
 
 function renderLoanForm() {
     return render(
@@ -66,13 +108,65 @@ function renderLoanForm() {
     );
 }
 
+function fillForm(
+    expectedReturnDate
+) {
+    fireEvent.change(
+        screen.getByLabelText(
+            /låntagarens namn/i
+        ),
+        {
+            target: {
+                value:
+                    "Patrik Hading",
+            },
+        }
+    );
+
+    fireEvent.change(
+        screen.getByLabelText(
+            /låntagarens e-post/i
+        ),
+        {
+            target: {
+                value:
+                    "patrik@example.com",
+            },
+        }
+    );
+
+    fireEvent.change(
+        screen.getByLabelText(
+            /låntagarens telefonnummer/i
+        ),
+        {
+            target: {
+                value:
+                    "+46701234567",
+            },
+        }
+    );
+
+    fireEvent.change(
+        screen.getByLabelText(
+            /förväntat återlämningsdatum/i
+        ),
+        {
+            target: {
+                value:
+                expectedReturnDate,
+            },
+        }
+    );
+}
+
 describe("LoanForm", () => {
     beforeEach(() => {
         vi.clearAllMocks();
     });
 
     test(
-        "renders loading state first",
+        "renders loading state and fetches equipment",
         async () => {
             api.get.mockResolvedValueOnce({
                 data: availableEquipment,
@@ -81,7 +175,7 @@ describe("LoanForm", () => {
             renderLoanForm();
 
             expect(
-                screen.getByText(
+                screen.getByLabelText(
                     /hämtar utrustning/i
                 )
             ).toBeInTheDocument();
@@ -91,7 +185,7 @@ describe("LoanForm", () => {
                     "heading",
                     {
                         name:
-                            /låna utrustning/i,
+                            /registrera lån/i,
                     }
                 )
             ).toBeInTheDocument();
@@ -104,7 +198,7 @@ describe("LoanForm", () => {
     );
 
     test(
-        "renders extended details for available equipment",
+        "renders equipment and administrator fields",
         async () => {
             api.get.mockResolvedValueOnce({
                 data: availableEquipment,
@@ -117,16 +211,16 @@ describe("LoanForm", () => {
                     "heading",
                     {
                         name:
-                            /låna utrustning/i,
+                            /registrera lån/i,
                     }
                 )
             ).toBeInTheDocument();
 
             expect(
-                screen.getAllByText(
-                    /tillgänglig/i
-                ).length
-            ).toBeGreaterThan(0);
+                screen.getByText(
+                    /endast.*utsedd.*klubbadministratör/i
+                )
+            ).toBeInTheDocument();
 
             expect(
                 screen.getByText(
@@ -162,93 +256,77 @@ describe("LoanForm", () => {
 
             expect(
                 screen.getByText(
+                    "Hylla A2"
+                )
+            ).toBeInTheDocument();
+
+            expect(
+                screen.getByText(
                     "Svart hjälm"
                 )
             ).toBeInTheDocument();
 
             expect(
                 screen.getByLabelText(
-                    /namn/i
+                    /låntagarens namn/i
                 )
             ).toBeEnabled();
 
             expect(
                 screen.getByLabelText(
-                    /e-post/i
+                    /låntagarens e-post/i
                 )
             ).toBeEnabled();
 
             expect(
                 screen.getByLabelText(
-                    /telefonnummer/i
+                    /låntagarens telefonnummer/i
                 )
             ).toBeEnabled();
 
-            expect(
-                screen.getByRole(
-                    "button",
-                    {
-                        name:
-                            /låna utrustning/i,
-                    }
-                )
-            ).toBeEnabled();
+            const dateInput =
+                screen.getByLabelText(
+                    /förväntat återlämningsdatum/i
+                );
+
+            expect(dateInput)
+                .toBeEnabled();
+
+            expect(dateInput)
+                .toBeRequired();
+
+            expect(dateInput)
+                .toHaveAttribute("min");
+
+            expect(dateInput)
+                .not.toHaveAttribute("max");
         }
     );
 
     test(
-        "submits loan for active and available equipment",
+        "submits loan through protected admin endpoint",
         async () => {
+            const expectedReturnDate =
+                futureDate();
+
             api.get.mockResolvedValueOnce({
                 data: availableEquipment,
             });
 
             api.post.mockResolvedValueOnce({
-                data: {
-                    id: 10,
-                },
+                data: registeredLoan(
+                    expectedReturnDate
+                ),
             });
 
             renderLoanForm();
 
             await screen.findByLabelText(
-                /namn/i
+                /låntagarens namn/i
             );
 
-            fireEvent.change(
-                screen.getByLabelText(
-                    /namn/i
-                ),
-                {
-                    target: {
-                        value:
-                            "Patrik Hading",
-                    },
-                }
-            );
-
-            fireEvent.change(
-                screen.getByLabelText(
-                    /e-post/i
-                ),
-                {
-                    target: {
-                        value:
-                            "patrik@example.com",
-                    },
-                }
-            );
-
-            fireEvent.change(
-                screen.getByLabelText(
-                    /telefonnummer/i
-                ),
-                {
-                    target: {
-                        value:
-                            "+46701234567",
-                    },
-                }
+            fillForm(
+                expectedReturnDate
             );
 
             fireEvent.click(
@@ -256,7 +334,7 @@ describe("LoanForm", () => {
                     "button",
                     {
                         name:
-                            /låna utrustning/i,
+                            /^registrera lån$/i,
                     }
                 )
             );
@@ -264,7 +342,7 @@ describe("LoanForm", () => {
             await waitFor(() => {
                 expect(api.post)
                     .toHaveBeenCalledWith(
-                        "/loan/HELMET-001",
+                        "/admin/loans/HELMET-001",
                         {
                             borrowerName:
                                 "Patrik Hading",
@@ -272,20 +350,57 @@ describe("LoanForm", () => {
                                 "patrik@example.com",
                             phoneNumber:
                                 "+46701234567",
+                            expectedReturnDate,
                         }
                     );
             });
 
             expect(
                 await screen.findByText(
-                    /utrustningen är nu utlånad/i
+                    /lånet registrerades/i
                 )
             ).toBeInTheDocument();
         }
     );
 
     test(
-        "disables loan form when equipment is loaned",
+        "does not submit without expected return date",
+        async () => {
+            api.get.mockResolvedValueOnce({
+                data: availableEquipment,
+            });
+
+            renderLoanForm();
+
+            await screen.findByLabelText(
+                /låntagarens namn/i
+            );
+
+            fillForm("");
+
+            fireEvent.submit(
+                screen.getByRole(
+                    "button",
+                    {
+                        name:
+                            /^registrera lån$/i,
+                    }
+                ).closest("form")
+            );
+
+            expect(
+                await screen.findByText(
+                    /förväntat återlämningsdatum måste anges/i
+                )
+            ).toBeInTheDocument();
+
+            expect(api.post)
+                .not.toHaveBeenCalled();
+        }
+    );
+
+    test(
+        "disables form when equipment is already loaned",
         async () => {
             api.get.mockResolvedValueOnce({
                 data: {
@@ -296,36 +411,37 @@ describe("LoanForm", () => {
 
             renderLoanForm();
 
-            const loanedStatusElements =
-                await screen.findAllByText(
-                    /^redan utlånad$/i
-                );
-
             expect(
-                loanedStatusElements
-            ).toHaveLength(2);
-
-            expect(
-                screen.getByText(
-                    /utrustningen kan inte lånas igen förrän den är återlämnad/i
+                await screen.findByRole(
+                    "heading",
+                    {
+                        name:
+                            /redan utlånad/i,
+                    }
                 )
             ).toBeInTheDocument();
 
             expect(
                 screen.getByLabelText(
-                    /namn/i
+                    /låntagarens namn/i
                 )
             ).toBeDisabled();
 
             expect(
                 screen.getByLabelText(
-                    /e-post/i
+                    /låntagarens e-post/i
                 )
             ).toBeDisabled();
 
             expect(
                 screen.getByLabelText(
-                    /telefonnummer/i
+                    /låntagarens telefonnummer/i
+                )
+            ).toBeDisabled();
+
+            expect(
+                screen.getByLabelText(
+                    /förväntat återlämningsdatum/i
                 )
             ).toBeDisabled();
 
@@ -334,7 +450,7 @@ describe("LoanForm", () => {
                     "button",
                     {
                         name:
-                            /^redan utlånad$/i,
+                            /redan utlånad/i,
                     }
                 )
             ).toBeDisabled();
@@ -345,45 +461,36 @@ describe("LoanForm", () => {
     );
 
     test(
-        "disables loan form when equipment is inactive even if available",
+        "disables form when equipment is inactive",
         async () => {
             api.get.mockResolvedValueOnce({
                 data: {
                     ...availableEquipment,
                     active: false,
-                    available: true,
                 },
             });
 
             renderLoanForm();
 
             expect(
-                await screen.findByText(
-                    /^inaktiverad$/i
-                )
-            ).toBeInTheDocument();
-
-            expect(
-                screen.getByText(
-                    /inte längre tillgänglig för utlåning/i
+                await screen.findByRole(
+                    "heading",
+                    {
+                        name:
+                            /inaktiverad/i,
+                    }
                 )
             ).toBeInTheDocument();
 
             expect(
                 screen.getByLabelText(
-                    /namn/i
+                    /låntagarens namn/i
                 )
             ).toBeDisabled();
 
             expect(
                 screen.getByLabelText(
-                    /e-post/i
-                )
-            ).toBeDisabled();
-
-            expect(
-                screen.getByLabelText(
-                    /telefonnummer/i
+                    /förväntat återlämningsdatum/i
                 )
             ).toBeDisabled();
 
@@ -392,7 +499,7 @@ describe("LoanForm", () => {
                     "button",
                     {
                         name:
-                            /utrustningen är inaktiverad/i,
+                            /inaktiverad/i,
                     }
                 )
             ).toBeDisabled();
@@ -403,13 +510,13 @@ describe("LoanForm", () => {
     );
 
     test(
-        "shows error when equipment cannot be fetched",
+        "shows fetch error",
         async () => {
             api.get.mockRejectedValueOnce({
                 response: {
                     data: {
                         message:
-                            "Kunde inte hitta utrustning.",
+                            "Kunde inte hitta utrustningen.",
                     },
                 },
             });
@@ -418,7 +525,7 @@ describe("LoanForm", () => {
 
             expect(
                 await screen.findByText(
-                    /kunde inte hitta utrustning/i
+                    /kunde inte hitta utrustningen/i
                 )
             ).toBeInTheDocument();
 
@@ -428,8 +535,11 @@ describe("LoanForm", () => {
     );
 
     test(
-        "shows backend error when loan registration fails",
+        "shows backend registration error",
         async () => {
+            const expectedReturnDate =
+                futureDate();
+
             api.get.mockResolvedValueOnce({
                 data: availableEquipment,
             });
@@ -438,7 +548,7 @@ describe("LoanForm", () => {
                 response: {
                     data: {
                         message:
-                            "Utrustningen är inaktiverad och kan inte lånas.",
+                            "Utrustningen är redan utlånad.",
                     },
                 },
             });
@@ -446,43 +556,11 @@ describe("LoanForm", () => {
             renderLoanForm();
 
             await screen.findByLabelText(
-                /namn/i
+                /låntagarens namn/i
             );
 
-            fireEvent.change(
-                screen.getByLabelText(
-                    /namn/i
-                ),
-                {
-                    target: {
-                        value:
-                            "Patrik Hading",
-                    },
-                }
-            );
-
-            fireEvent.change(
-                screen.getByLabelText(
-                    /e-post/i
-                ),
-                {
-                    target: {
-                        value:
-                            "patrik@example.com",
-                    },
-                }
-            );
-
-            fireEvent.change(
-                screen.getByLabelText(
-                    /telefonnummer/i
-                ),
-                {
-                    target: {
-                        value:
-                            "+46701234567",
-                    },
-                }
+            fillForm(
+                expectedReturnDate
             );
 
             fireEvent.click(
@@ -490,14 +568,14 @@ describe("LoanForm", () => {
                     "button",
                     {
                         name:
-                            /låna utrustning/i,
+                            /^registrera lån$/i,
                     }
                 )
             );
 
             expect(
                 await screen.findByText(
-                    /utrustningen är inaktiverad och kan inte lånas/i
+                    /utrustningen är redan utlånad/i
                 )
             ).toBeInTheDocument();
         }

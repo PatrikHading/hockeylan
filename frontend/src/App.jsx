@@ -68,29 +68,24 @@ function App() {
                             <QrCodeView />
                         }
                     />
+
+                    <Route
+                        path="/loan/:serialNumber"
+                        element={<LoanForm />}
+                    />
+
+                    <Route
+                        path="/loan/success"
+                        element={<ThankYou />}
+                    />
+
+                    <Route
+                        path="/scan"
+                        element={
+                            <QrScannerPage />
+                        }
+                    />
                 </Route>
-
-                <Route
-                    path="/loan/:serialNumber"
-                    element={<LoanForm />}
-                />
-
-                <Route
-                    path="/loan/success"
-                    element={<ThankYou />}
-                />
-
-                <Route
-                    path="/thank-you"
-                    element={<ThankYou />}
-                />
-
-                <Route
-                    path="/scan"
-                    element={
-                        <QrScannerPage />
-                    }
-                />
             </Route>
         </Routes>
     );

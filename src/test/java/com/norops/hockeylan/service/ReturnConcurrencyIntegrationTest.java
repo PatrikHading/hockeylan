@@ -16,8 +16,14 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import java.time.LocalDate;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -29,84 +35,140 @@ class ReturnConcurrencyIntegrationTest {
     @Container
     @ServiceConnection
     static final PostgreSQLContainer POSTGRES =
-            new PostgreSQLContainer("postgres:17-alpine");
+            new PostgreSQLContainer(
+                    "postgres:17-alpine"
+            );
 
     @Autowired
     private LoanService loanService;
 
     @Autowired
-    private LoanRepository loanRepository;
+    private LoanRepository
+            loanRepository;
 
     @Autowired
-    private EquipmentRepository equipmentRepository;
+    private EquipmentRepository
+            equipmentRepository;
 
     @BeforeEach
     void cleanDatabase() {
         loanRepository.deleteAllInBatch();
-        equipmentRepository.deleteAllInBatch();
+        equipmentRepository
+                .deleteAllInBatch();
     }
 
     @Test
     void twoSimultaneousReturnsShouldOnlyCompleteOnce()
             throws Exception {
-        Equipment equipment = new Equipment(
-                EquipmentType.HELMET,
-                "CONCURRENT-RETURN-001",
-                "Concurrency test"
-        );
+        Equipment equipment =
+                new Equipment(
+                        EquipmentType.HELMET,
+                        "CONCURRENT-RETURN-001",
+                        "Concurrency test"
+                );
+
         equipment.setAvailable(false);
-        equipment = equipmentRepository.saveAndFlush(equipment);
+
+        equipment =
+                equipmentRepository
+                        .saveAndFlush(
+                                equipment
+                        );
 
         Loan loan = new Loan(
                 equipment,
                 "Test Borrower",
                 "borrower@example.com",
-                "0701234567"
+                "0701234567",
+                LocalDate.now()
+                        .plusDays(30)
         );
-        loan = loanRepository.saveAndFlush(loan);
 
-        Long loanId = loan.getId();
+        loan =
+                loanRepository
+                        .saveAndFlush(
+                                loan
+                        );
+
+        Long loanId =
+                loan.getId();
 
         ExecutorService executor =
-                Executors.newFixedThreadPool(2);
-        CountDownLatch ready = new CountDownLatch(2);
-        CountDownLatch start = new CountDownLatch(1);
+                Executors
+                        .newFixedThreadPool(
+                                2
+                        );
 
-        Callable<Object> returnAttempt = () -> {
-            ready.countDown();
-            start.await(10, TimeUnit.SECONDS);
+        CountDownLatch ready =
+                new CountDownLatch(2);
 
-            try {
-                return loanService.markReturned(loanId);
-            } catch (RuntimeException exception) {
-                return exception;
-            }
-        };
+        CountDownLatch start =
+                new CountDownLatch(1);
+
+        Callable<Object> returnAttempt =
+                () -> {
+                    ready.countDown();
+
+                    start.await(
+                            10,
+                            TimeUnit.SECONDS
+                    );
+
+                    try {
+                        return loanService
+                                .markReturned(
+                                        loanId
+                                );
+                    } catch (
+                            RuntimeException exception
+                    ) {
+                        return exception;
+                    }
+                };
 
         try {
             Future<Object> first =
-                    executor.submit(returnAttempt);
+                    executor.submit(
+                            returnAttempt
+                    );
+
             Future<Object> second =
-                    executor.submit(returnAttempt);
+                    executor.submit(
+                            returnAttempt
+                    );
 
             assertThat(
-                    ready.await(10, TimeUnit.SECONDS)
+                    ready.await(
+                            10,
+                            TimeUnit.SECONDS
+                    )
             ).isTrue();
 
             start.countDown();
 
-            List<Object> results = List.of(
-                    first.get(20, TimeUnit.SECONDS),
-                    second.get(20, TimeUnit.SECONDS)
-            );
+            List<Object> results =
+                    List.of(
+                            first.get(
+                                    20,
+                                    TimeUnit.SECONDS
+                            ),
+                            second.get(
+                                    20,
+                                    TimeUnit.SECONDS
+                            )
+                    );
 
             assertThat(results)
-                    .filteredOn(Loan.class::isInstance)
+                    .filteredOn(
+                            Loan.class::isInstance
+                    )
                     .hasSize(1);
 
             assertThat(results)
                     .filteredOn(
-                            BusinessRuleException.class::isInstance
+                            BusinessRuleException
+                                    .class
+                                    ::isInstance
                     )
                     .hasSize(1);
         } finally {
@@ -114,15 +176,35 @@ class ReturnConcurrencyIntegrationTest {
         }
 
         Loan persistedLoan =
-                loanRepository.findById(loanId).orElseThrow();
+                loanRepository
+                        .findById(loanId)
+                        .orElseThrow();
 
         Equipment persistedEquipment =
-                equipmentRepository.findById(
-                        persistedLoan.getEquipment().getId()
-                ).orElseThrow();
+                equipmentRepository
+                        .findById(
+                                persistedLoan
+                                        .getEquipment()
+                                        .getId()
+                        )
+                        .orElseThrow();
 
-        assertThat(persistedLoan.isReturned()).isTrue();
-        assertThat(persistedLoan.getReturnedAt()).isNotNull();
-        assertThat(persistedEquipment.isAvailable()).isTrue();
+        assertThat(
+                persistedLoan.isReturned()
+        ).isTrue();
+
+        assertThat(
+                persistedLoan.getReturnedAt()
+        ).isNotNull();
+
+        assertThat(
+                persistedLoan
+                        .getExpectedReturnDate()
+        ).isNotNull();
+
+        assertThat(
+                persistedEquipment
+                        .isAvailable()
+        ).isTrue();
     }
 }

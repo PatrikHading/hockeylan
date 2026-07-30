@@ -8,10 +8,10 @@ import com.norops.hockeylan.model.EquipmentType;
 import com.norops.hockeylan.model.Loan;
 import com.norops.hockeylan.repository.EquipmentRepository;
 import com.norops.hockeylan.repository.LoanRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -19,44 +19,88 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ActiveLoanServiceTest {
 
-    @Mock
-    private LoanRepository loanRepository;
+    private static final Clock FIXED_CLOCK =
+            Clock.fixed(
+                    Instant.parse(
+                            "2026-07-30T10:00:00Z"
+                    ),
+                    ZoneId.of(
+                            "Europe/Stockholm"
+                    )
+            );
 
     @Mock
-    private EquipmentRepository equipmentRepository;
+    private LoanRepository
+            loanRepository;
 
-    @InjectMocks
+    @Mock
+    private EquipmentRepository
+            equipmentRepository;
+
     private LoanService loanService;
+
+    @BeforeEach
+    void setUp() {
+        loanService = new LoanService(
+                loanRepository,
+                equipmentRepository,
+                FIXED_CLOCK
+        );
+    }
 
     @Test
     void historyShouldUsePaginationAndStableSort() {
         Loan loan = activeLoan();
 
         Page<Loan> resultPage =
-                new PageImpl<>(List.of(loan));
+                new PageImpl<>(
+                        List.of(loan)
+                );
 
-        when(loanRepository.findAll(
-                any(Specification.class),
-                any(Pageable.class)
-        )).thenReturn(resultPage);
+        when(
+                loanRepository.findAll(
+                        any(Specification.class),
+                        any(Pageable.class)
+                )
+        ).thenReturn(resultPage);
 
         Page<Loan> result =
                 loanService.getLoanHistory(
                         LoanHistoryStatus.ACTIVE,
-                        LocalDate.of(2026, 7, 1),
-                        LocalDate.of(2026, 7, 31),
+                        LocalDate.of(
+                                2026,
+                                7,
+                                1
+                        ),
+                        LocalDate.of(
+                                2026,
+                                7,
+                                31
+                        ),
                         " helmet-001 ",
                         EquipmentType.HELMET,
                         " Patrik ",
@@ -64,17 +108,22 @@ class ActiveLoanServiceTest {
                         20
                 );
 
-        assertSame(resultPage, result);
+        assertSame(
+                resultPage,
+                result
+        );
 
-        ArgumentCaptor<Pageable> pageableCaptor =
+        ArgumentCaptor<Pageable>
+                pageableCaptor =
                 ArgumentCaptor.forClass(
                         Pageable.class
                 );
 
-        verify(loanRepository).findAll(
-                any(Specification.class),
-                pageableCaptor.capture()
-        );
+        verify(loanRepository)
+                .findAll(
+                        any(Specification.class),
+                        pageableCaptor.capture()
+                );
 
         Pageable pageable =
                 pageableCaptor.getValue();
@@ -91,18 +140,58 @@ class ActiveLoanServiceTest {
 
         assertEquals(
                 "loanDate: DESC,id: DESC",
-                pageable.getSort().toString()
+                pageable.getSort()
+                        .toString()
         );
     }
 
     @Test
-    void historyShouldAcceptEmptyOptionalFilters() {
-        Page<Loan> emptyPage = Page.empty();
+    void historyShouldAcceptOverdueStatus() {
+        Page<Loan> emptyPage =
+                Page.empty();
 
-        when(loanRepository.findAll(
-                any(Specification.class),
-                any(Pageable.class)
-        )).thenReturn(emptyPage);
+        when(
+                loanRepository.findAll(
+                        any(Specification.class),
+                        any(Pageable.class)
+                )
+        ).thenReturn(emptyPage);
+
+        Page<Loan> result =
+                loanService.getLoanHistory(
+                        LoanHistoryStatus.OVERDUE,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        0,
+                        20
+                );
+
+        assertSame(
+                emptyPage,
+                result
+        );
+
+        verify(loanRepository)
+                .findAll(
+                        any(Specification.class),
+                        any(Pageable.class)
+                );
+    }
+
+    @Test
+    void historyShouldAcceptEmptyOptionalFilters() {
+        Page<Loan> emptyPage =
+                Page.empty();
+
+        when(
+                loanRepository.findAll(
+                        any(Specification.class),
+                        any(Pageable.class)
+                )
+        ).thenReturn(emptyPage);
 
         Page<Loan> result =
                 loanService.getLoanHistory(
@@ -116,11 +205,45 @@ class ActiveLoanServiceTest {
                         20
                 );
 
-        assertSame(emptyPage, result);
+        assertSame(
+                emptyPage,
+                result
+        );
 
-        verify(loanRepository).findAll(
-                any(Specification.class),
-                any(Pageable.class)
+        verify(loanRepository)
+                .findAll(
+                        any(Specification.class),
+                        any(Pageable.class)
+                );
+    }
+
+    @Test
+    void historyShouldUseAllStatusWhenStatusIsNull() {
+        Page<Loan> emptyPage =
+                Page.empty();
+
+        when(
+                loanRepository.findAll(
+                        any(Specification.class),
+                        any(Pageable.class)
+                )
+        ).thenReturn(emptyPage);
+
+        Page<Loan> result =
+                loanService.getLoanHistory(
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        0,
+                        20
+                );
+
+        assertSame(
+                emptyPage,
+                result
         );
     }
 
@@ -128,115 +251,165 @@ class ActiveLoanServiceTest {
     void historyShouldRejectInvalidDateInterval() {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> loanService.getLoanHistory(
-                        LoanHistoryStatus.ALL,
-                        LocalDate.of(2026, 8, 1),
-                        LocalDate.of(2026, 7, 1),
-                        null,
-                        null,
-                        null,
-                        0,
-                        20
-                )
+                () ->
+                        loanService
+                                .getLoanHistory(
+                                        LoanHistoryStatus.ALL,
+                                        LocalDate.of(
+                                                2026,
+                                                8,
+                                                1
+                                        ),
+                                        LocalDate.of(
+                                                2026,
+                                                7,
+                                                1
+                                        ),
+                                        null,
+                                        null,
+                                        null,
+                                        0,
+                                        20
+                                )
         );
 
-        verifyNoInteractions(loanRepository);
+        verifyNoInteractions(
+                loanRepository
+        );
     }
 
     @Test
     void historyShouldRejectNegativePage() {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> loanService.getLoanHistory(
-                        LoanHistoryStatus.ALL,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        -1,
-                        20
-                )
+                () ->
+                        loanService
+                                .getLoanHistory(
+                                        LoanHistoryStatus.ALL,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        -1,
+                                        20
+                                )
         );
 
-        verifyNoInteractions(loanRepository);
+        verifyNoInteractions(
+                loanRepository
+        );
     }
 
     @Test
     void historyShouldRejectPageSizeBelowOne() {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> loanService.getLoanHistory(
-                        LoanHistoryStatus.ALL,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        0,
-                        0
-                )
+                () ->
+                        loanService
+                                .getLoanHistory(
+                                        LoanHistoryStatus.ALL,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        0,
+                                        0
+                                )
         );
 
-        verifyNoInteractions(loanRepository);
+        verifyNoInteractions(
+                loanRepository
+        );
     }
 
     @Test
     void historyShouldRejectOversizedPage() {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> loanService.getLoanHistory(
-                        LoanHistoryStatus.ALL,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        0,
-                        101
-                )
+                () ->
+                        loanService
+                                .getLoanHistory(
+                                        LoanHistoryStatus.ALL,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        0,
+                                        101
+                                )
         );
 
-        verifyNoInteractions(loanRepository);
+        verifyNoInteractions(
+                loanRepository
+        );
     }
 
     @Test
-    void markReturnedShouldUpdateLoanTimestampAndEquipment() {
+    void markReturnedShouldUseClockAndUpdateEquipment() {
         Loan loan = activeLoan();
-        Equipment equipment = loan.getEquipment();
 
-        when(loanRepository.findByIdForUpdate(10L))
-                .thenReturn(Optional.of(loan));
+        Equipment equipment =
+                loan.getEquipment();
 
-        when(equipmentRepository.findByIdForUpdate(1L))
-                .thenReturn(Optional.of(equipment));
+        when(
+                loanRepository
+                        .findByIdForUpdate(
+                                10L
+                        )
+        ).thenReturn(
+                Optional.of(loan)
+        );
 
-        when(loanRepository.save(loan))
-                .thenReturn(loan);
+        when(
+                equipmentRepository
+                        .findByIdForUpdate(
+                                1L
+                        )
+        ).thenReturn(
+                Optional.of(equipment)
+        );
 
-        when(equipmentRepository.save(equipment))
-                .thenReturn(equipment);
+        when(
+                loanRepository.save(loan)
+        ).thenReturn(loan);
 
-        LocalDateTime before = LocalDateTime.now();
+        when(
+                equipmentRepository.save(
+                        equipment
+                )
+        ).thenReturn(equipment);
 
         Loan result =
-                loanService.markReturned(10L);
+                loanService.markReturned(
+                        10L
+                );
 
-        LocalDateTime after = LocalDateTime.now();
-
-        assertSame(loan, result);
-        assertTrue(result.isReturned());
-        assertNotNull(result.getReturnedAt());
-
-        assertFalse(
-                result.getReturnedAt().isBefore(before)
+        assertSame(
+                loan,
+                result
         );
 
-        assertFalse(
-                result.getReturnedAt().isAfter(after)
+        assertTrue(
+                result.isReturned()
         );
 
-        assertTrue(equipment.isAvailable());
+        assertEquals(
+                LocalDateTime.of(
+                        2026,
+                        7,
+                        30,
+                        12,
+                        0
+                ),
+                result.getReturnedAt()
+        );
+
+        assertTrue(
+                equipment.isAvailable()
+        );
 
         verify(loanRepository)
                 .findByIdForUpdate(10L);
@@ -244,26 +417,98 @@ class ActiveLoanServiceTest {
         verify(equipmentRepository)
                 .findByIdForUpdate(1L);
 
-        verify(loanRepository).save(loan);
+        verify(loanRepository)
+                .save(loan);
 
         verify(equipmentRepository)
                 .save(equipment);
     }
 
     @Test
+    void markReturnedShouldDetectLateReturn() {
+        Loan loan = activeLoan();
+
+        loan.setExpectedReturnDate(
+                LocalDate.of(
+                        2026,
+                        7,
+                        29
+                )
+        );
+
+        Equipment equipment =
+                loan.getEquipment();
+
+        when(
+                loanRepository
+                        .findByIdForUpdate(
+                                10L
+                        )
+        ).thenReturn(
+                Optional.of(loan)
+        );
+
+        when(
+                equipmentRepository
+                        .findByIdForUpdate(
+                                1L
+                        )
+        ).thenReturn(
+                Optional.of(equipment)
+        );
+
+        when(
+                loanRepository.save(loan)
+        ).thenReturn(loan);
+
+        Loan result =
+                loanService.markReturned(
+                        10L
+                );
+
+        assertTrue(
+                result.wasReturnedLate()
+        );
+
+        assertFalse(
+                result.isOverdue(
+                        LocalDate.of(
+                                2026,
+                                7,
+                                31
+                        )
+                )
+        );
+    }
+
+    @Test
     void markReturnedShouldReturn404WhenLoanDoesNotExist() {
-        when(loanRepository.findByIdForUpdate(99L))
-                .thenReturn(Optional.empty());
+        when(
+                loanRepository
+                        .findByIdForUpdate(
+                                99L
+                        )
+        ).thenReturn(
+                Optional.empty()
+        );
 
         assertThrows(
                 ResourceNotFoundException.class,
-                () -> loanService.markReturned(99L)
+                () ->
+                        loanService
+                                .markReturned(
+                                        99L
+                                )
         );
 
-        verifyNoInteractions(equipmentRepository);
+        verifyNoInteractions(
+                equipmentRepository
+        );
 
-        verify(loanRepository, never())
-                .save(any());
+        verify(
+                loanRepository,
+                never()
+        ).save(any());
     }
 
     @Test
@@ -271,17 +516,32 @@ class ActiveLoanServiceTest {
         Loan loan = activeLoan();
 
         loan.registerReturn(
-                LocalDateTime.now().minusMinutes(5)
+                LocalDateTime.of(
+                        2026,
+                        7,
+                        29,
+                        12,
+                        0
+                )
         );
 
-        when(loanRepository.findByIdForUpdate(10L))
-                .thenReturn(Optional.of(loan));
+        when(
+                loanRepository
+                        .findByIdForUpdate(
+                                10L
+                        )
+        ).thenReturn(
+                Optional.of(loan)
+        );
 
         BusinessRuleException exception =
                 assertThrows(
                         BusinessRuleException.class,
-                        () -> loanService
-                                .markReturned(10L)
+                        () ->
+                                loanService
+                                        .markReturned(
+                                                10L
+                                        )
                 );
 
         assertEquals(
@@ -289,43 +549,92 @@ class ActiveLoanServiceTest {
                 exception.getMessage()
         );
 
-        verifyNoInteractions(equipmentRepository);
+        verifyNoInteractions(
+                equipmentRepository
+        );
 
-        verify(loanRepository, never())
-                .save(any());
+        verify(
+                loanRepository,
+                never()
+        ).save(any());
     }
 
     @Test
     void markReturnedShouldFailWhenEquipmentIsMissing() {
         Loan loan = activeLoan();
 
-        when(loanRepository.findByIdForUpdate(10L))
-                .thenReturn(Optional.of(loan));
+        when(
+                loanRepository
+                        .findByIdForUpdate(
+                                10L
+                        )
+        ).thenReturn(
+                Optional.of(loan)
+        );
 
-        when(equipmentRepository.findByIdForUpdate(1L))
-                .thenReturn(Optional.empty());
+        when(
+                equipmentRepository
+                        .findByIdForUpdate(
+                                1L
+                        )
+        ).thenReturn(
+                Optional.empty()
+        );
 
         assertThrows(
                 ResourceNotFoundException.class,
-                () -> loanService.markReturned(10L)
+                () ->
+                        loanService
+                                .markReturned(
+                                        10L
+                                )
         );
 
-        assertFalse(loan.isReturned());
-        assertNull(loan.getReturnedAt());
+        assertFalse(
+                loan.isReturned()
+        );
 
-        verify(loanRepository, never())
-                .save(any());
+        assertNull(
+                loan.getReturnedAt()
+        );
 
-        verify(equipmentRepository, never())
-                .save(any());
+        verify(
+                loanRepository,
+                never()
+        ).save(any());
+
+        verify(
+                equipmentRepository,
+                never()
+        ).save(any());
+    }
+
+    @Test
+    void activeLoanShouldContainExpectedReturnDate() {
+        Loan loan = activeLoan();
+
+        assertNotNull(
+                loan.getExpectedReturnDate()
+        );
+
+        assertFalse(
+                loan.isOverdue(
+                        LocalDate.of(
+                                2026,
+                                7,
+                                30
+                        )
+                )
+        );
     }
 
     private Loan activeLoan() {
-        Equipment equipment = new Equipment(
-                EquipmentType.HELMET,
-                "HELMET-001",
-                "Bauer hjälm"
-        );
+        Equipment equipment =
+                new Equipment(
+                        EquipmentType.HELMET,
+                        "HELMET-001",
+                        "Bauer hjälm"
+                );
 
         equipment.setId(1L);
         equipment.setAvailable(false);
@@ -334,7 +643,12 @@ class ActiveLoanServiceTest {
                 equipment,
                 "Patrik Hading",
                 "patrik@example.com",
-                "+46701234567"
+                "+46701234567",
+                LocalDate.of(
+                        2026,
+                        8,
+                        31
+                )
         );
 
         loan.setId(10L);

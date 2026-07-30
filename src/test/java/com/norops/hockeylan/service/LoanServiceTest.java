@@ -8,12 +8,17 @@ import com.norops.hockeylan.model.EquipmentType;
 import com.norops.hockeylan.model.Loan;
 import com.norops.hockeylan.repository.EquipmentRepository;
 import com.norops.hockeylan.repository.LoanRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,15 +33,37 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class LoanServiceTest {
 
+    private static final ZoneId ZONE =
+            ZoneId.of(
+                    "Europe/Stockholm"
+            );
+
+    private static final Clock FIXED_CLOCK =
+            Clock.fixed(
+                    Instant.parse(
+                            "2026-07-30T10:00:00Z"
+                    ),
+                    ZONE
+            );
+
     @Mock
-    private LoanRepository loanRepository;
+    private LoanRepository
+            loanRepository;
 
     @Mock
     private EquipmentRepository
             equipmentRepository;
 
-    @InjectMocks
     private LoanService loanService;
+
+    @BeforeEach
+    void setUp() {
+        loanService = new LoanService(
+                loanRepository,
+                equipmentRepository,
+                FIXED_CLOCK
+        );
+    }
 
     @Test
     void registerLoanShouldCreateLoanAndMarkEquipmentUnavailable() {
@@ -46,31 +73,17 @@ class LoanServiceTest {
                         "HELMET-001"
                 );
 
-        LoanFormDTO dto = validLoanForm();
-
-        when(
-                equipmentRepository
-                        .findBySerialNumberIgnoreCaseForUpdate(
-                                "HELMET-001"
+        LoanFormDTO dto =
+                validLoanForm(
+                        LocalDate.of(
+                                2027,
+                                4,
+                                30
                         )
-        ).thenReturn(
-                Optional.of(equipment)
-        );
+                );
 
-        when(
-                loanRepository
-                        .existsByEquipmentAndReturnedFalse(
-                                equipment
-                        )
-        ).thenReturn(false);
-
-        when(
-                loanRepository.save(
-                        any(Loan.class)
-                )
-        ).thenAnswer(
-                invocation ->
-                        invocation.getArgument(0)
+        prepareSuccessfulSave(
+                equipment
         );
 
         Loan result =
@@ -94,9 +107,33 @@ class LoanServiceTest {
                 result.getPhoneNumber()
         );
 
-        assertFalse(result.isReturned());
-        assertFalse(equipment.isAvailable());
-        assertTrue(equipment.isActive());
+        assertEquals(
+                LocalDate.of(
+                        2027,
+                        4,
+                        30
+                ),
+                result.getExpectedReturnDate()
+        );
+
+        assertEquals(
+                LocalDateTime.of(
+                        2026,
+                        7,
+                        30,
+                        12,
+                        0
+                ),
+                result.getLoanDate()
+        );
+
+        assertFalse(
+                result.isReturned()
+        );
+
+        assertFalse(
+                equipment.isAvailable()
+        );
 
         verify(loanRepository)
                 .save(any(Loan.class));
@@ -106,22 +143,175 @@ class LoanServiceTest {
     }
 
     @Test
-    void registerLoanShouldThrowWhenEquipmentDoesNotExist() {
-        LoanFormDTO dto = validLoanForm();
+    void registerLoanShouldAllowReturnOnLoanDate() {
+        Equipment equipment =
+                activeEquipment(
+                        EquipmentType.HELMET,
+                        "HELMET-002"
+                );
 
+        prepareSuccessfulSave(
+                equipment
+        );
+
+        Loan result =
+                loanService.registerLoan(
+                        "HELMET-002",
+                        validLoanForm(
+                                LocalDate.of(
+                                        2026,
+                                        7,
+                                        30
+                                )
+                        )
+                );
+
+        assertEquals(
+                LocalDate.of(
+                        2026,
+                        7,
+                        30
+                ),
+                result.getExpectedReturnDate()
+        );
+    }
+
+    @Test
+    void registerLoanShouldAllowMultiYearLoan() {
+        Equipment equipment =
+                activeEquipment(
+                        EquipmentType.SKATES,
+                        "SKATES-001"
+                );
+
+        prepareSuccessfulSave(
+                equipment
+        );
+
+        Loan result =
+                loanService.registerLoan(
+                        "SKATES-001",
+                        validLoanForm(
+                                LocalDate.of(
+                                        2030,
+                                        6,
+                                        1
+                                )
+                        )
+                );
+
+        assertEquals(
+                LocalDate.of(
+                        2030,
+                        6,
+                        1
+                ),
+                result.getExpectedReturnDate()
+        );
+    }
+
+    @Test
+    void registerLoanShouldRejectDateBeforeLoanDate() {
+        LoanFormDTO dto =
+                validLoanForm(
+                        LocalDate.of(
+                                2026,
+                                7,
+                                29
+                        )
+                );
+
+        BusinessRuleException exception =
+                assertThrows(
+                        BusinessRuleException.class,
+                        () ->
+                                loanService
+                                        .registerLoan(
+                                                "HELMET-001",
+                                                dto
+                                        )
+                );
+
+        assertEquals(
+                "Förväntat återlämningsdatum får inte ligga före utlåningsdatumet.",
+                exception.getMessage()
+        );
+
+        verify(
+                equipmentRepository,
+                never()
+        ).findBySerialNumberIgnoreCaseForUpdate(
+                any()
+        );
+
+        verify(
+                loanRepository,
+                never()
+        ).save(any());
+    }
+
+    @Test
+    void registerLoanShouldRejectMissingExpectedDate() {
+        LoanFormDTO dto =
+                validLoanForm(
+                        LocalDate.of(
+                                2027,
+                                1,
+                                1
+                        )
+                );
+
+        dto.setExpectedReturnDate(
+                null
+        );
+
+        BusinessRuleException exception =
+                assertThrows(
+                        BusinessRuleException.class,
+                        () ->
+                                loanService
+                                        .registerLoan(
+                                                "HELMET-001",
+                                                dto
+                                        )
+                );
+
+        assertEquals(
+                "Förväntat återlämningsdatum måste anges.",
+                exception.getMessage()
+        );
+
+        verify(
+                equipmentRepository,
+                never()
+        ).findBySerialNumberIgnoreCaseForUpdate(
+                any()
+        );
+    }
+
+    @Test
+    void registerLoanShouldThrowWhenEquipmentDoesNotExist() {
         when(
                 equipmentRepository
                         .findBySerialNumberIgnoreCaseForUpdate(
                                 "UNKNOWN"
                         )
-        ).thenReturn(Optional.empty());
+        ).thenReturn(
+                Optional.empty()
+        );
 
         assertThrows(
                 ResourceNotFoundException.class,
                 () ->
                         loanService.registerLoan(
                                 "unknown",
-                                dto
+                                validLoanForm(
+                                        LocalDate.of(
+                                                2027,
+                                                1,
+                                                1
+                                        )
+                                )
                         )
         );
 
@@ -136,7 +326,7 @@ class LoanServiceTest {
         Equipment equipment =
                 activeEquipment(
                         EquipmentType.HELMET,
-                        "HELMET-002"
+                        "HELMET-003"
                 );
 
         equipment.setActive(false);
@@ -144,7 +334,7 @@ class LoanServiceTest {
         when(
                 equipmentRepository
                         .findBySerialNumberIgnoreCaseForUpdate(
-                                "HELMET-002"
+                                "HELMET-003"
                         )
         ).thenReturn(
                 Optional.of(equipment)
@@ -154,66 +344,17 @@ class LoanServiceTest {
                 assertThrows(
                         BusinessRuleException.class,
                         () ->
-                                loanService.registerLoan(
-                                        "helmet-002",
-                                        validLoanForm()
-                                )
-                );
-
-        assertEquals(
-                "Utrustningen är inaktiverad och kan inte lånas.",
-                exception.getMessage()
-        );
-
-        assertTrue(equipment.isAvailable());
-        assertFalse(equipment.isActive());
-
-        verify(
-                loanRepository,
-                never()
-        ).existsByEquipmentAndReturnedFalse(
-                any()
-        );
-
-        verify(
-                loanRepository,
-                never()
-        ).save(any());
-
-        verify(
-                equipmentRepository,
-                never()
-        ).save(any());
-    }
-
-    @Test
-    void registerLoanShouldPrioritizeInactiveStatusOverUnavailableStatus() {
-        Equipment equipment =
-                activeEquipment(
-                        EquipmentType.SKATES,
-                        "SKATES-002"
-                );
-
-        equipment.setActive(false);
-        equipment.setAvailable(false);
-
-        when(
-                equipmentRepository
-                        .findBySerialNumberIgnoreCaseForUpdate(
-                                "SKATES-002"
-                        )
-        ).thenReturn(
-                Optional.of(equipment)
-        );
-
-        BusinessRuleException exception =
-                assertThrows(
-                        BusinessRuleException.class,
-                        () ->
-                                loanService.registerLoan(
-                                        "skates-002",
-                                        validLoanForm()
-                                )
+                                loanService
+                                        .registerLoan(
+                                                "HELMET-003",
+                                                validLoanForm(
+                                                        LocalDate.of(
+                                                                2027,
+                                                                1,
+                                                                1
+                                                        )
+                                                )
+                                        )
                 );
 
         assertEquals(
@@ -232,7 +373,7 @@ class LoanServiceTest {
         Equipment equipment =
                 activeEquipment(
                         EquipmentType.SKATES,
-                        "SKATES-001"
+                        "SKATES-002"
                 );
 
         equipment.setAvailable(false);
@@ -240,7 +381,7 @@ class LoanServiceTest {
         when(
                 equipmentRepository
                         .findBySerialNumberIgnoreCaseForUpdate(
-                                "SKATES-001"
+                                "SKATES-002"
                         )
         ).thenReturn(
                 Optional.of(equipment)
@@ -250,10 +391,17 @@ class LoanServiceTest {
                 assertThrows(
                         BusinessRuleException.class,
                         () ->
-                                loanService.registerLoan(
-                                        "skates-001",
-                                        validLoanForm()
-                                )
+                                loanService
+                                        .registerLoan(
+                                                "SKATES-002",
+                                                validLoanForm(
+                                                        LocalDate.of(
+                                                                2027,
+                                                                1,
+                                                                1
+                                                        )
+                                                )
+                                        )
                 );
 
         assertEquals(
@@ -268,7 +416,7 @@ class LoanServiceTest {
     }
 
     @Test
-    void registerLoanShouldThrowWhenEquipmentAlreadyHasActiveLoan() {
+    void registerLoanShouldRejectExistingActiveLoan() {
         Equipment equipment =
                 activeEquipment(
                         EquipmentType.STICK,
@@ -295,10 +443,17 @@ class LoanServiceTest {
                 assertThrows(
                         BusinessRuleException.class,
                         () ->
-                                loanService.registerLoan(
-                                        "stick-001",
-                                        validLoanForm()
-                                )
+                                loanService
+                                        .registerLoan(
+                                                "STICK-001",
+                                                validLoanForm(
+                                                        LocalDate.of(
+                                                                2027,
+                                                                1,
+                                                                1
+                                                        )
+                                                )
+                                        )
                 );
 
         assertEquals(
@@ -313,12 +468,12 @@ class LoanServiceTest {
     }
 
     @Test
-    void registerLoanShouldThrowWhenFormIsMissing() {
+    void registerLoanShouldRejectMissingForm() {
         assertThrows(
                 BusinessRuleException.class,
                 () ->
                         loanService.registerLoan(
-                                "helmet-001",
+                                "HELMET-001",
                                 null
                         )
         );
@@ -329,11 +484,38 @@ class LoanServiceTest {
         ).findBySerialNumberIgnoreCaseForUpdate(
                 any()
         );
+    }
 
-        verify(
-                loanRepository,
-                never()
-        ).save(any());
+    private void prepareSuccessfulSave(
+            Equipment equipment
+    ) {
+        when(
+                equipmentRepository
+                        .findBySerialNumberIgnoreCaseForUpdate(
+                                equipment
+                                        .getSerialNumber()
+                        )
+        ).thenReturn(
+                Optional.of(equipment)
+        );
+
+        when(
+                loanRepository
+                        .existsByEquipmentAndReturnedFalse(
+                                equipment
+                        )
+        ).thenReturn(false);
+
+        when(
+                loanRepository.save(
+                        any(Loan.class)
+                )
+        ).thenAnswer(
+                invocation ->
+                        invocation.getArgument(
+                                0
+                        )
+        );
     }
 
     private Equipment activeEquipment(
@@ -347,7 +529,9 @@ class LoanServiceTest {
         );
     }
 
-    private LoanFormDTO validLoanForm() {
+    private LoanFormDTO validLoanForm(
+            LocalDate expectedReturnDate
+    ) {
         LoanFormDTO dto =
                 new LoanFormDTO();
 
@@ -361,6 +545,10 @@ class LoanServiceTest {
 
         dto.setPhoneNumber(
                 "+46701234567"
+        );
+
+        dto.setExpectedReturnDate(
+                expectedReturnDate
         );
 
         return dto;

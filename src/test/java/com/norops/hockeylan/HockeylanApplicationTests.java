@@ -17,6 +17,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.env.Environment;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.junit.jupiter.Container;
@@ -26,6 +27,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +36,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Testcontainers
 @SpringBootTest
@@ -52,7 +55,8 @@ class HockeylanApplicationTests {
 					"6",
 					"7",
 					"8",
-					"9"
+					"9",
+					"10"
 			);
 
 	private static final Set<String>
@@ -64,45 +68,49 @@ class HockeylanApplicationTests {
 			);
 
 	private static final Set<String>
-			EXPECTED_CONSTRAINTS = Set.of(
-			"equipment_pkey",
-			"loans_pkey",
-			"fk_loans_equipment",
-			"chk_equipment_type_allowed",
-			"chk_equipment_serial_number_not_blank",
-			"chk_equipment_type_not_blank",
-			"chk_loans_borrower_name_not_blank",
-			"chk_loans_email_not_blank",
-			"chk_loans_phone_number_not_blank",
-			"admins_pkey",
-			"chk_admins_username_not_blank",
-			"chk_admins_password_hash_not_blank",
-			"chk_loans_return_state_consistent",
-			"chk_equipment_condition_allowed",
-			"chk_equipment_age_category_allowed",
-			"chk_equipment_size_not_blank",
-			"chk_equipment_brand_not_blank",
-			"chk_equipment_model_not_blank",
-			"chk_equipment_storage_location_not_blank"
-	);
+			EXPECTED_CONSTRAINTS =
+			Set.of(
+					"equipment_pkey",
+					"loans_pkey",
+					"fk_loans_equipment",
+					"chk_equipment_type_allowed",
+					"chk_equipment_serial_number_not_blank",
+					"chk_equipment_type_not_blank",
+					"chk_loans_borrower_name_not_blank",
+					"chk_loans_email_not_blank",
+					"chk_loans_phone_number_not_blank",
+					"admins_pkey",
+					"chk_admins_username_not_blank",
+					"chk_admins_password_hash_not_blank",
+					"chk_loans_return_state_consistent",
+					"chk_equipment_condition_allowed",
+					"chk_equipment_age_category_allowed",
+					"chk_equipment_size_not_blank",
+					"chk_equipment_brand_not_blank",
+					"chk_equipment_model_not_blank",
+					"chk_equipment_storage_location_not_blank",
+					"chk_loans_expected_return_date_valid"
+			);
 
 	private static final Set<String>
-			EXPECTED_INDEXES = Set.of(
-			"ux_equipment_serial_number_lower",
-			"idx_equipment_available",
-			"idx_equipment_type",
-			"idx_loans_equipment_id",
-			"idx_loans_returned",
-			"idx_loans_loan_date",
-			"ux_loans_one_active_loan_per_equipment",
-			"ux_admins_username_lower",
-			"idx_loans_history_sort",
-			"idx_loans_status_history_sort",
-			"idx_equipment_active",
-			"idx_equipment_condition",
-			"idx_equipment_age_category",
-			"idx_equipment_active_available_type"
-	);
+			EXPECTED_INDEXES =
+			Set.of(
+					"ux_equipment_serial_number_lower",
+					"idx_equipment_available",
+					"idx_equipment_type",
+					"idx_loans_equipment_id",
+					"idx_loans_returned",
+					"idx_loans_loan_date",
+					"ux_loans_one_active_loan_per_equipment",
+					"ux_admins_username_lower",
+					"idx_loans_history_sort",
+					"idx_loans_status_history_sort",
+					"idx_equipment_active",
+					"idx_equipment_condition",
+					"idx_equipment_age_category",
+					"idx_equipment_active_available_type",
+					"idx_loans_active_expected_return_date"
+			);
 
 	@Container
 	@ServiceConnection
@@ -135,7 +143,8 @@ class HockeylanApplicationTests {
 	private final EquipmentRepository
 			equipmentRepository;
 
-	private final LoanRepository loanRepository;
+	private final LoanRepository
+			loanRepository;
 
 	@Autowired
 	HockeylanApplicationTests(
@@ -151,19 +160,31 @@ class HockeylanApplicationTests {
 	) {
 		this.applicationContext =
 				applicationContext;
-		this.environment = environment;
-		this.dataSource = dataSource;
-		this.flyway = flyway;
-		this.jdbcTemplate = jdbcTemplate;
+
+		this.environment =
+				environment;
+
+		this.dataSource =
+				dataSource;
+
+		this.flyway =
+				flyway;
+
+		this.jdbcTemplate =
+				jdbcTemplate;
+
 		this.equipmentRepository =
 				equipmentRepository;
-		this.loanRepository = loanRepository;
+
+		this.loanRepository =
+				loanRepository;
 	}
 
 	@BeforeEach
 	void cleanApplicationData() {
 		loanRepository.deleteAllInBatch();
-		equipmentRepository.deleteAllInBatch();
+		equipmentRepository
+				.deleteAllInBatch();
 	}
 
 	@Test
@@ -192,26 +213,36 @@ class HockeylanApplicationTests {
 				applicationContext.getBean(
 						EquipmentRepository.class
 				)
-		).isSameAs(equipmentRepository);
+		).isSameAs(
+				equipmentRepository
+		);
 
 		assertThat(
 				applicationContext.getBean(
 						LoanRepository.class
 				)
-		).isSameAs(loanRepository);
+		).isSameAs(
+				loanRepository
+		);
+
+		assertThat(
+				applicationContext.getBean(
+						java.time.Clock.class
+				)
+		).isNotNull();
 	}
 
 	@Test
-	void postgresqlTestcontainerProvidesTheApplicationsDataSource()
+	void postgresqlTestcontainerProvidesApplicationDataSource()
 			throws SQLException {
-
 		assertThat(
 				POSTGRES.isRunning()
 		).isTrue();
 
 		try (
 				Connection connection =
-						dataSource.getConnection()
+						dataSource
+								.getConnection()
 		) {
 			assertThat(
 					connection.isValid(5)
@@ -244,14 +275,12 @@ class HockeylanApplicationTests {
 	}
 
 	@Test
-	void flywayMigratesAnEmptyDatabaseThroughEveryExpectedVersion() {
-		MigrationInfo[] appliedMigrations =
+	void flywayMigratesThroughEveryExpectedVersion() {
+		MigrationInfo[] migrations =
 				flyway.info().applied();
 
 		Set<String> appliedVersions =
-				Arrays.stream(
-								appliedMigrations
-						)
+				Arrays.stream(migrations)
 						.map(
 								MigrationInfo::getVersion
 						)
@@ -265,7 +294,7 @@ class HockeylanApplicationTests {
 						EXPECTED_MIGRATION_VERSIONS
 				);
 
-		assertThat(appliedMigrations)
+		assertThat(migrations)
 				.hasSize(
 						EXPECTED_MIGRATION_VERSIONS
 								.size()
@@ -280,7 +309,7 @@ class HockeylanApplicationTests {
 
 	@Test
 	void flywayCreatesExpectedApplicationTables() {
-		Set<String> actualTables =
+		Set<String> tables =
 				Set.copyOf(
 						jdbcTemplate.queryForList(
 								"""
@@ -298,7 +327,7 @@ class HockeylanApplicationTests {
 						)
 				);
 
-		assertThat(actualTables)
+		assertThat(tables)
 				.containsExactlyInAnyOrderElementsOf(
 						EXPECTED_TABLES
 				);
@@ -331,24 +360,25 @@ class HockeylanApplicationTests {
 						(
 								resultSet,
 								rowNumber
-						) -> new ColumnMetadata(
-								resultSet.getString(
-										"column_name"
-								),
-								resultSet.getString(
-										"data_type"
-								),
-								resultSet.getObject(
-										"character_maximum_length",
-										Integer.class
-								),
-								resultSet.getString(
-										"is_nullable"
-								),
-								resultSet.getString(
-										"column_default"
+						) ->
+								new ColumnMetadata(
+										resultSet.getString(
+												"column_name"
+										),
+										resultSet.getString(
+												"data_type"
+										),
+										resultSet.getObject(
+												"character_maximum_length",
+												Integer.class
+										),
+										resultSet.getString(
+												"is_nullable"
+										),
+										resultSet.getString(
+												"column_default"
+										)
 								)
-						)
 				);
 
 		Map<String, ColumnMetadata>
@@ -361,16 +391,17 @@ class HockeylanApplicationTests {
 								)
 						);
 
-		assertThat(columnsByName.keySet())
-				.containsExactlyInAnyOrder(
-						"size",
-						"brand",
-						"model",
-						"condition",
-						"age_category",
-						"storage_location",
-						"active"
-				);
+		assertThat(
+				columnsByName.keySet()
+		).containsExactlyInAnyOrder(
+				"size",
+				"brand",
+				"model",
+				"condition",
+				"age_category",
+				"storage_location",
+				"active"
+		);
 
 		assertTextColumn(
 				columnsByName,
@@ -414,35 +445,67 @@ class HockeylanApplicationTests {
 				true
 		);
 
-		ColumnMetadata activeColumn =
-				columnsByName.get("active");
+		ColumnMetadata active =
+				columnsByName.get(
+						"active"
+				);
 
-		assertThat(activeColumn).isNotNull();
+		assertThat(active)
+				.isNotNull();
 
-		assertThat(activeColumn.dataType())
-				.isEqualTo("boolean");
+		assertThat(
+				active.dataType()
+		).isEqualTo("boolean");
 
-		assertThat(activeColumn.nullable())
-				.isEqualTo("NO");
+		assertThat(
+				active.nullable()
+		).isEqualTo("NO");
 
 		assertThat(
 				normalizeSql(
-						activeColumn.defaultValue()
+						active.defaultValue()
 				)
 		).contains("true");
 
 		assertThat(
 				normalizeSql(
 						columnsByName
-								.get("condition")
+								.get(
+										"condition"
+								)
 								.defaultValue()
 				)
 		).contains("good");
 	}
 
 	@Test
+	void flywayCreatesExpectedReturnDateColumn() {
+		Map<String, Object> column =
+				jdbcTemplate.queryForMap(
+						"""
+                        SELECT
+                            data_type,
+                            is_nullable
+                        FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'loans'
+                          AND column_name =
+                              'expected_return_date'
+                        """
+				);
+
+		assertThat(
+				column.get("data_type")
+		).isEqualTo("date");
+
+		assertThat(
+				column.get("is_nullable")
+		).isEqualTo("NO");
+	}
+
+	@Test
 	void flywayCreatesExpectedConstraints() {
-		Set<String> actualConstraints =
+		Set<String> constraints =
 				Set.copyOf(
 						jdbcTemplate.queryForList(
 								"""
@@ -459,7 +522,7 @@ class HockeylanApplicationTests {
 						)
 				);
 
-		assertThat(actualConstraints)
+		assertThat(constraints)
 				.containsAll(
 						EXPECTED_CONSTRAINTS
 				);
@@ -467,7 +530,7 @@ class HockeylanApplicationTests {
 
 	@Test
 	void flywayCreatesExpectedIndexes() {
-		Set<String> actualIndexes =
+		Set<String> indexes =
 				Set.copyOf(
 						jdbcTemplate.queryForList(
 								"""
@@ -484,7 +547,7 @@ class HockeylanApplicationTests {
 						)
 				);
 
-		assertThat(actualIndexes)
+		assertThat(indexes)
 				.containsAll(
 						EXPECTED_INDEXES
 				);
@@ -492,25 +555,28 @@ class HockeylanApplicationTests {
 
 	@Test
 	void importantIndexesHaveExpectedDefinitions() {
-		String serialNumberIndexDefinition =
+		String serialIndex =
 				findIndexDefinition(
 						"ux_equipment_serial_number_lower"
 				);
 
-		String activeLoanIndexDefinition =
+		String activeLoanIndex =
 				findIndexDefinition(
 						"ux_loans_one_active_loan_per_equipment"
 				);
 
-		String equipmentFilterIndexDefinition =
+		String equipmentFilterIndex =
 				findIndexDefinition(
 						"idx_equipment_active_available_type"
 				);
 
+		String expectedReturnIndex =
+				findIndexDefinition(
+						"idx_loans_active_expected_return_date"
+				);
+
 		assertThat(
-				normalizeSql(
-						serialNumberIndexDefinition
-				)
+				normalizeSql(serialIndex)
 		)
 				.contains("unique index")
 				.contains(
@@ -518,9 +584,7 @@ class HockeylanApplicationTests {
 				);
 
 		assertThat(
-				normalizeSql(
-						activeLoanIndexDefinition
-				)
+				normalizeSql(activeLoanIndex)
 		)
 				.contains("unique index")
 				.contains("(equipment_id)")
@@ -530,37 +594,56 @@ class HockeylanApplicationTests {
 
 		assertThat(
 				normalizeSql(
-						equipmentFilterIndexDefinition
+						equipmentFilterIndex
+				)
+		).contains(
+				"(active, available, type)"
+		);
+
+		assertThat(
+				normalizeSql(
+						expectedReturnIndex
 				)
 		)
 				.contains(
-						"(active, available, type)"
+						"(expected_return_date, id)"
+				)
+				.contains(
+						"where (returned = false)"
 				);
 	}
 
 	@Test
-	void repositoriesPersistEntitiesAgainstTheFlywaySchema() {
-		Equipment equipment = new Equipment(
-				EquipmentType.HELMET,
-				"  integration-001  ",
-				"  M  ",
-				"  Bauer  ",
-				"  Re-Akt 150  ",
-				EquipmentCondition.GOOD,
-				AgeCategory.JUNIOR,
-				"  Hylla A2  ",
-				"  Integration test helmet  "
-		);
+	void repositoriesPersistEntitiesAgainstFlywaySchema() {
+		Equipment equipment =
+				new Equipment(
+						EquipmentType.HELMET,
+						"  integration-001  ",
+						"  M  ",
+						"  Bauer  ",
+						"  Re-Akt 150  ",
+						EquipmentCondition.GOOD,
+						AgeCategory.JUNIOR,
+						"  Hylla A2  ",
+						"  Integration test helmet  "
+				);
 
 		Equipment savedEquipment =
 				equipmentRepository
-						.saveAndFlush(equipment);
+						.saveAndFlush(
+								equipment
+						);
+
+		LocalDate expectedReturnDate =
+				LocalDate.now()
+						.plusMonths(6);
 
 		Loan loan = new Loan(
 				savedEquipment,
 				"  Test Borrower  ",
 				"  TEST.BORROWER@EXAMPLE.COM  ",
-				"  0701234567  "
+				"  0701234567  ",
+				expectedReturnDate
 		);
 
 		Loan savedLoan =
@@ -599,7 +682,9 @@ class HockeylanApplicationTests {
 
 		assertThat(
 				savedEquipment.getModel()
-		).isEqualTo("Re-Akt 150");
+		).isEqualTo(
+				"Re-Akt 150"
+		);
 
 		assertThat(
 				savedEquipment.getCondition()
@@ -616,7 +701,9 @@ class HockeylanApplicationTests {
 		assertThat(
 				savedEquipment
 						.getStorageLocation()
-		).isEqualTo("Hylla A2");
+		).isEqualTo(
+				"Hylla A2"
+		);
 
 		assertThat(
 				savedEquipment.getDescription()
@@ -653,6 +740,13 @@ class HockeylanApplicationTests {
 		).isNotNull();
 
 		assertThat(
+				savedLoan
+						.getExpectedReturnDate()
+		).isEqualTo(
+				expectedReturnDate
+		);
+
+		assertThat(
 				savedLoan.getBorrowerName()
 		).isEqualTo(
 				"Test Borrower"
@@ -673,12 +767,15 @@ class HockeylanApplicationTests {
 		assertThat(
 				loanRepository
 						.findByEquipmentIdAndReturnedFalse(
-								savedEquipment.getId()
+								savedEquipment
+										.getId()
 						)
 		)
 				.isPresent()
 				.get()
-				.extracting(Loan::getId)
+				.extracting(
+						Loan::getId
+				)
 				.isEqualTo(
 						savedLoan.getId()
 				);
@@ -715,7 +812,7 @@ class HockeylanApplicationTests {
                 """
 		);
 
-		Map<String, Object> equipmentRow =
+		Map<String, Object> row =
 				jdbcTemplate.queryForMap(
 						"""
                         SELECT
@@ -733,38 +830,149 @@ class HockeylanApplicationTests {
 				);
 
 		assertThat(
-				equipmentRow.get("condition")
+				row.get("condition")
 		).isEqualTo("GOOD");
 
 		assertThat(
-				equipmentRow.get("active")
+				row.get("active")
 		).isEqualTo(true);
 
 		assertThat(
-				equipmentRow.get("size")
+				row.get("size")
 		).isNull();
 
 		assertThat(
-				equipmentRow.get("brand")
+				row.get("brand")
 		).isNull();
 
 		assertThat(
-				equipmentRow.get("model")
+				row.get("model")
 		).isNull();
 
 		assertThat(
-				equipmentRow.get("age_category")
+				row.get("age_category")
 		).isNull();
 
 		assertThat(
-				equipmentRow.get(
+				row.get(
 						"storage_location"
 				)
 		).isNull();
 	}
 
 	@Test
-	void importantDatabaseConstraintsAreEnforced() {
+	void activeLoanUniqueIndexIsEnforced() {
+		Long equipmentId =
+				insertEquipment(
+						"CONSTRAINT-001"
+				);
+
+		insertActiveLoan(
+				equipmentId,
+				"First borrower",
+				"first@example.com"
+		);
+
+		assertThatThrownBy(
+				() -> insertActiveLoan(
+						equipmentId,
+						"Second borrower",
+						"second@example.com"
+				)
+		).isInstanceOf(
+				DataIntegrityViolationException
+						.class
+		);
+	}
+
+	@Test
+	void expectedReturnDateCannotBeBeforeLoanDate() {
+		Long equipmentId =
+				insertEquipment(
+						"DATE-CONSTRAINT-001"
+				);
+
+		assertThatThrownBy(
+				() -> jdbcTemplate.update(
+						"""
+                        INSERT INTO loans (
+                            borrower_name,
+                            email,
+                            loan_date,
+                            expected_return_date,
+                            phone_number,
+                            returned,
+                            equipment_id,
+                            created_date,
+                            updated_date,
+                            version
+                        )
+                        VALUES (
+                            'Test borrower',
+                            'test@example.com',
+                            TIMESTAMP '2026-07-30 12:00:00',
+                            DATE '2026-07-29',
+                            '0700000000',
+                            false,
+                            ?,
+                            CURRENT_TIMESTAMP,
+                            CURRENT_TIMESTAMP,
+                            0
+                        )
+                        """,
+						equipmentId
+				)
+		).isInstanceOf(
+				DataIntegrityViolationException
+						.class
+		);
+	}
+
+	@Test
+	void expectedReturnDateMayEqualLoanDate() {
+		Long equipmentId =
+				insertEquipment(
+						"SAME-DATE-001"
+				);
+
+		int inserted =
+				jdbcTemplate.update(
+						"""
+                        INSERT INTO loans (
+                            borrower_name,
+                            email,
+                            loan_date,
+                            expected_return_date,
+                            phone_number,
+                            returned,
+                            equipment_id,
+                            created_date,
+                            updated_date,
+                            version
+                        )
+                        VALUES (
+                            'Same day borrower',
+                            'same@example.com',
+                            TIMESTAMP '2026-07-30 12:00:00',
+                            DATE '2026-07-30',
+                            '0700000000',
+                            false,
+                            ?,
+                            CURRENT_TIMESTAMP,
+                            CURRENT_TIMESTAMP,
+                            0
+                        )
+                        """,
+						equipmentId
+				);
+
+		assertThat(inserted)
+				.isEqualTo(1);
+	}
+
+	private Long insertEquipment(
+			String serialNumber
+	) {
 		jdbcTemplate.update(
 				"""
                 INSERT INTO equipment (
@@ -779,30 +987,38 @@ class HockeylanApplicationTests {
                     true,
                     CURRENT_TIMESTAMP,
                     CURRENT_TIMESTAMP,
-                    'CONSTRAINT-001',
+                    ?,
                     'HELMET',
                     0
                 )
-                """
+                """,
+				serialNumber
 		);
 
-		Long equipmentId =
-				jdbcTemplate.queryForObject(
+		return jdbcTemplate
+				.queryForObject(
 						"""
                         SELECT id
                         FROM equipment
-                        WHERE serial_number =
-                              'CONSTRAINT-001'
+                        WHERE serial_number = ?
                         """,
-						Long.class
+						Long.class,
+						serialNumber
 				);
+	}
 
+	private void insertActiveLoan(
+			Long equipmentId,
+			String borrowerName,
+			String email
+	) {
 		jdbcTemplate.update(
 				"""
                 INSERT INTO loans (
                     borrower_name,
                     email,
                     loan_date,
+                    expected_return_date,
                     phone_number,
                     returned,
                     equipment_id,
@@ -811,9 +1027,10 @@ class HockeylanApplicationTests {
                     version
                 )
                 VALUES (
-                    'First borrower',
-                    'first@example.com',
+                    ?,
+                    ?,
                     CURRENT_TIMESTAMP,
+                    CURRENT_DATE + 30,
                     '0700000001',
                     false,
                     ?,
@@ -822,43 +1039,10 @@ class HockeylanApplicationTests {
                     0
                 )
                 """,
+				borrowerName,
+				email,
 				equipmentId
 		);
-
-		List<String>
-				activeLoanIndexDefinitions =
-				jdbcTemplate.queryForList(
-						"""
-                        SELECT indexdef
-                        FROM pg_indexes
-                        WHERE schemaname = 'public'
-                          AND indexname =
-                              'ux_loans_one_active_loan_per_equipment'
-                        """,
-						String.class
-				);
-
-		assertThat(
-				activeLoanIndexDefinitions
-		)
-				.hasSize(1)
-				.allSatisfy(
-						definition ->
-								assertThat(
-										normalizeSql(
-												definition
-										)
-								)
-										.contains(
-												"unique index"
-										)
-										.contains(
-												"(equipment_id)"
-										)
-										.contains(
-												"where (returned = false)"
-										)
-				);
 	}
 
 	private void assertTextColumn(
@@ -869,47 +1053,63 @@ class HockeylanApplicationTests {
 			boolean nullable
 	) {
 		ColumnMetadata column =
-				columnsByName.get(columnName);
-
-		assertThat(column).isNotNull();
-
-		assertThat(column.dataType())
-				.isEqualTo(
-						"character varying"
+				columnsByName.get(
+						columnName
 				);
 
-		assertThat(column.maximumLength())
-				.isEqualTo(expectedLength);
+		assertThat(column)
+				.isNotNull();
 
-		assertThat(column.nullable())
-				.isEqualTo(
-						nullable ? "YES" : "NO"
-				);
+		assertThat(
+				column.dataType()
+		).isEqualTo(
+				"character varying"
+		);
+
+		assertThat(
+				column.maximumLength()
+		).isEqualTo(
+				expectedLength
+		);
+
+		assertThat(
+				column.nullable()
+		).isEqualTo(
+				nullable
+						? "YES"
+						: "NO"
+		);
 	}
 
 	private String findIndexDefinition(
 			String indexName
 	) {
-		return jdbcTemplate.queryForObject(
-				"""
-                SELECT indexdef
-                FROM pg_indexes
-                WHERE schemaname = 'public'
-                  AND indexname = ?
-                """,
-				String.class,
-				indexName
-		);
+		return jdbcTemplate
+				.queryForObject(
+						"""
+                        SELECT indexdef
+                        FROM pg_indexes
+                        WHERE schemaname = 'public'
+                          AND indexname = ?
+                        """,
+						String.class,
+						indexName
+				);
 	}
 
-	private String normalizeSql(String sql) {
+	private String normalizeSql(
+			String sql
+	) {
 		if (sql == null) {
 			return "";
 		}
 
 		return sql
 				.replace("\"", "")
-				.replaceAll("\\s+", " ")
+				.replaceAll(
+						"\\s+",
+						" "
+				)
 				.trim()
 				.toLowerCase();
 	}

@@ -23,7 +23,8 @@ import java.util.List;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ExtendWith(MockitoExtension.class)
 class AdminActiveLoanControllerTest {
@@ -31,7 +32,8 @@ class AdminActiveLoanControllerTest {
     private MockMvc mockMvc;
 
     @Mock
-    private EquipmentService equipmentService;
+    private EquipmentService
+            equipmentService;
 
     @Mock
     private LoanService loanService;
@@ -51,7 +53,9 @@ class AdminActiveLoanControllerTest {
         );
 
         mockMvc = MockMvcBuilders
-                .standaloneSetup(controller)
+                .standaloneSetup(
+                        controller
+                )
                 .setControllerAdvice(
                         new GlobalExceptionHandler()
                 )
@@ -63,82 +67,250 @@ class AdminActiveLoanControllerTest {
             throws Exception {
         Loan loan = activeLoan();
 
-        when(loanService.getLoanHistory(
-                LoanHistoryStatus.ACTIVE,
-                LocalDate.of(2026, 7, 1),
-                LocalDate.of(2026, 7, 31),
-                "HELMET-001",
-                EquipmentType.HELMET,
-                "Patrik",
-                0,
-                20
-        )).thenReturn(
-                new PageImpl<>(List.of(loan))
+        when(
+                loanService.getLoanHistory(
+                        LoanHistoryStatus.ACTIVE,
+                        LocalDate.of(
+                                2026,
+                                7,
+                                1
+                        ),
+                        LocalDate.of(
+                                2026,
+                                7,
+                                31
+                        ),
+                        "HELMET-001",
+                        EquipmentType.HELMET,
+                        "Patrik",
+                        0,
+                        20
+                )
+        ).thenReturn(
+                new PageImpl<>(
+                        List.of(loan)
+                )
         );
 
-        mockMvc.perform(get("/api/admin/loans")
-                        .param("status", "ACTIVE")
-                        .param("from", "2026-07-01")
-                        .param("to", "2026-07-31")
-                        .param(
-                                "serialNumber",
-                                "HELMET-001"
+        mockMvc.perform(
+                        get(
+                                "/api/admin/loans"
                         )
-                        .param(
-                                "equipmentType",
-                                "HELMET"
+                                .param(
+                                        "status",
+                                        "ACTIVE"
+                                )
+                                .param(
+                                        "from",
+                                        "2026-07-01"
+                                )
+                                .param(
+                                        "to",
+                                        "2026-07-31"
+                                )
+                                .param(
+                                        "serialNumber",
+                                        "HELMET-001"
+                                )
+                                .param(
+                                        "equipmentType",
+                                        "HELMET"
+                                )
+                                .param(
+                                        "borrower",
+                                        "Patrik"
+                                )
+                                .param(
+                                        "page",
+                                        "0"
+                                )
+                                .param(
+                                        "size",
+                                        "20"
+                                )
+                )
+                .andExpect(
+                        status().isOk()
+                )
+                .andExpect(
+                        jsonPath(
+                                "$.content[0].id"
+                        ).value(10)
+                )
+                .andExpect(
+                        jsonPath(
+                                "$.content[0].borrowerName"
+                        ).value(
+                                "Patrik Hading"
                         )
-                        .param("borrower", "Patrik")
-                        .param("page", "0")
-                        .param("size", "20"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[0].id")
-                        .value(10))
-                .andExpect(jsonPath(
-                        "$.content[0].borrowerName"
-                ).value("Patrik Hading"))
-                .andExpect(jsonPath("$.page").value(0))
-                .andExpect(jsonPath("$.size").value(1))
-                .andExpect(jsonPath("$.totalElements")
-                        .value(1))
-                .andExpect(jsonPath("$.first").value(true))
-                .andExpect(jsonPath("$.last").value(true));
+                )
+                .andExpect(
+                        jsonPath(
+                                "$.content[0].expectedReturnDate"
+                        ).value(
+                                "2026-08-31"
+                        )
+                )
+                .andExpect(
+                        jsonPath(
+                                "$.content[0].returned"
+                        ).value(false)
+                )
+                .andExpect(
+                        jsonPath(
+                                "$.content[0].overdue"
+                        ).value(false)
+                )
+                .andExpect(
+                        jsonPath(
+                                "$.content[0].returnedLate"
+                        ).value(false)
+                )
+                .andExpect(
+                        jsonPath("$.page")
+                                .value(0)
+                )
+                .andExpect(
+                        jsonPath("$.size")
+                                .value(1)
+                )
+                .andExpect(
+                        jsonPath(
+                                "$.totalElements"
+                        ).value(1)
+                )
+                .andExpect(
+                        jsonPath("$.first")
+                                .value(true)
+                )
+                .andExpect(
+                        jsonPath("$.last")
+                                .value(true)
+                );
+    }
+
+    @Test
+    void historyShouldPassOverdueStatusToService()
+            throws Exception {
+        when(
+                loanService.getLoanHistory(
+                        LoanHistoryStatus.OVERDUE,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        0,
+                        20
+                )
+        ).thenReturn(
+                new PageImpl<>(
+                        List.of()
+                )
+        );
+
+        mockMvc.perform(
+                        get(
+                                "/api/admin/loans"
+                        )
+                                .param(
+                                        "status",
+                                        "OVERDUE"
+                                )
+                )
+                .andExpect(
+                        status().isOk()
+                )
+                .andExpect(
+                        jsonPath("$.content")
+                                .isEmpty()
+                );
     }
 
     @Test
     void historyShouldRejectPageSizeOver100()
             throws Exception {
-        when(loanService.getLoanHistory(
-                LoanHistoryStatus.ALL,
-                null,
-                null,
-                null,
-                null,
-                null,
-                0,
-                101
-        )).thenThrow(
+        when(
+                loanService.getLoanHistory(
+                        LoanHistoryStatus.ALL,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        0,
+                        101
+                )
+        ).thenThrow(
                 new IllegalArgumentException(
                         "Page size must be between 1 and 100."
                 )
         );
 
-        mockMvc.perform(get("/api/admin/loans")
-                        .param("size", "101"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.error")
-                        .value("Bad Request"))
-                .andExpect(jsonPath("$.message")
-                        .value("Request could not be processed."));
+        mockMvc.perform(
+                        get(
+                                "/api/admin/loans"
+                        )
+                                .param(
+                                        "size",
+                                        "101"
+                                )
+                )
+                .andExpect(
+                        status().isBadRequest()
+                )
+                .andExpect(
+                        jsonPath("$.status")
+                                .value(400)
+                )
+                .andExpect(
+                        jsonPath("$.error")
+                                .value(
+                                        "Bad Request"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.message")
+                                .value(
+                                        "Request could not be processed."
+                                )
+                );
+    }
+
+    @Test
+    void historyShouldRejectInvalidStatus()
+            throws Exception {
+        mockMvc.perform(
+                        get(
+                                "/api/admin/loans"
+                        )
+                                .param(
+                                        "status",
+                                        "UNKNOWN"
+                                )
+                )
+                .andExpect(
+                        status().isBadRequest()
+                )
+                .andExpect(
+                        jsonPath("$.status")
+                                .value(400)
+                )
+                .andExpect(
+                        jsonPath("$.error")
+                                .value(
+                                        "Invalid Parameter"
+                                )
+                );
     }
 
     private Loan activeLoan() {
-        Equipment equipment = new Equipment(
-                EquipmentType.HELMET,
-                "HELMET-001",
-                "Bauer hjälm"
-        );
+        Equipment equipment =
+                new Equipment(
+                        EquipmentType.HELMET,
+                        "HELMET-001",
+                        "Bauer hjälm"
+                );
 
         equipment.setId(1L);
         equipment.setAvailable(false);
@@ -147,12 +319,24 @@ class AdminActiveLoanControllerTest {
                 equipment,
                 "Patrik Hading",
                 "patrik@example.com",
-                "+46701234567"
+                "+46701234567",
+                LocalDate.of(
+                        2026,
+                        8,
+                        31
+                )
         );
 
         loan.setId(10L);
+
         loan.setLoanDate(
-                LocalDateTime.of(2026, 7, 28, 12, 30)
+                LocalDateTime.of(
+                        2026,
+                        7,
+                        28,
+                        12,
+                        30
+                )
         );
 
         return loan;
