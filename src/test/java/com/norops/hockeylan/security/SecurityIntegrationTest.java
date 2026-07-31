@@ -1,7 +1,14 @@
 package com.norops.hockeylan.security;
 
 import com.norops.hockeylan.model.Admin;
+import com.norops.hockeylan.model.AgeCategory;
+import com.norops.hockeylan.model.Equipment;
+import com.norops.hockeylan.model.EquipmentCondition;
+import com.norops.hockeylan.model.EquipmentType;
+import com.norops.hockeylan.model.Loan;
 import com.norops.hockeylan.repository.AdminRepository;
+import com.norops.hockeylan.repository.EquipmentRepository;
+import com.norops.hockeylan.repository.LoanRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +24,12 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
+import java.time.LocalDate;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -46,10 +58,21 @@ class SecurityIntegrationTest {
     private AdminRepository adminRepository;
 
     @Autowired
+    private EquipmentRepository equipmentRepository;
+
+    @Autowired
+    private LoanRepository loanRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {
+        loanRepository.deleteAllInBatch();
+        equipmentRepository.deleteAllInBatch();
         adminRepository.deleteAllInBatch();
 
         adminRepository.saveAndFlush(
@@ -66,26 +89,18 @@ class SecurityIntegrationTest {
     void publicEquipmentEndpointRemainsAccessible()
             throws Exception {
         mockMvc.perform(
-                        get(
-                                "/api/equipment/types"
-                        )
+                        get("/api/equipment/types")
                 )
-                .andExpect(
-                        status().isOk()
-                );
+                .andExpect(status().isOk());
     }
 
     @Test
     void publicLoanGetEndpointRemainsAccessible()
             throws Exception {
         mockMvc.perform(
-                        get(
-                                "/api/loan/UNKNOWN"
-                        )
+                        get("/api/loan/UNKNOWN")
                 )
-                .andExpect(
-                        status().isNotFound()
-                );
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -99,22 +114,16 @@ class SecurityIntegrationTest {
                                 .contentType(
                                         MediaType.APPLICATION_JSON
                                 )
-                                .content(
-                                        validLoanJson()
-                                )
+                                .content(validLoanJson())
                 )
-                .andExpect(
-                        status().isUnauthorized()
-                )
+                .andExpect(status().isUnauthorized())
                 .andExpect(
                         jsonPath("$.status")
                                 .value(401)
                 )
                 .andExpect(
                         jsonPath("$.error")
-                                .value(
-                                        "Unauthorized"
-                                )
+                                .value("Unauthorized")
                 )
                 .andExpect(
                         jsonPath("$.message")
@@ -128,22 +137,16 @@ class SecurityIntegrationTest {
     void anonymousAdminEquipmentRequestReturns401()
             throws Exception {
         mockMvc.perform(
-                        get(
-                                "/api/admin/equipment"
-                        )
+                        get("/api/admin/equipment")
                 )
-                .andExpect(
-                        status().isUnauthorized()
-                )
+                .andExpect(status().isUnauthorized())
                 .andExpect(
                         jsonPath("$.status")
                                 .value(401)
                 )
                 .andExpect(
                         jsonPath("$.error")
-                                .value(
-                                        "Unauthorized"
-                                )
+                                .value("Unauthorized")
                 );
     }
 
@@ -151,22 +154,16 @@ class SecurityIntegrationTest {
     void anonymousLoanHistoryRequestReturns401()
             throws Exception {
         mockMvc.perform(
-                        get(
-                                "/api/admin/loans"
-                        )
+                        get("/api/admin/loans")
                 )
-                .andExpect(
-                        status().isUnauthorized()
-                )
+                .andExpect(status().isUnauthorized())
                 .andExpect(
                         jsonPath("$.status")
                                 .value(401)
                 )
                 .andExpect(
                         jsonPath("$.error")
-                                .value(
-                                        "Unauthorized"
-                                )
+                                .value("Unauthorized")
                 );
     }
 
@@ -181,30 +178,23 @@ class SecurityIntegrationTest {
                                 .contentType(
                                         MediaType.APPLICATION_JSON
                                 )
-                                .content(
-                                        validLoanJson()
-                                )
+                                .content(validLoanJson())
                 )
-                .andExpect(
-                        status().isUnauthorized()
-                )
+                .andExpect(status().isUnauthorized())
                 .andExpect(
                         jsonPath("$.status")
                                 .value(401)
                 )
                 .andExpect(
                         jsonPath("$.error")
-                                .value(
-                                        "Unauthorized"
-                                )
+                                .value("Unauthorized")
                 );
     }
 
     @Test
     void authenticatedLoanRegistrationWithoutCsrfReturns403()
             throws Exception {
-        MockHttpSession session =
-                login();
+        MockHttpSession session = login();
 
         mockMvc.perform(
                         post(
@@ -214,22 +204,16 @@ class SecurityIntegrationTest {
                                 .contentType(
                                         MediaType.APPLICATION_JSON
                                 )
-                                .content(
-                                        validLoanJson()
-                                )
+                                .content(validLoanJson())
                 )
-                .andExpect(
-                        status().isForbidden()
-                );
+                .andExpect(status().isForbidden());
     }
 
     @Test
     void loginWithoutCsrfReturns403()
             throws Exception {
         mockMvc.perform(
-                        post(
-                                "/api/auth/login"
-                        )
+                        post("/api/auth/login")
                                 .contentType(
                                         MediaType.APPLICATION_JSON
                                 )
@@ -239,18 +223,14 @@ class SecurityIntegrationTest {
                                         )
                                 )
                 )
-                .andExpect(
-                        status().isForbidden()
-                );
+                .andExpect(status().isForbidden());
     }
 
     @Test
     void invalidCredentialsReturn401()
             throws Exception {
         mockMvc.perform(
-                        post(
-                                "/api/auth/login"
-                        )
+                        post("/api/auth/login")
                                 .with(csrf())
                                 .contentType(
                                         MediaType.APPLICATION_JSON
@@ -261,10 +241,7 @@ class SecurityIntegrationTest {
                                         )
                                 )
                 )
-                .andExpect(
-                        status()
-                                .isUnauthorized()
-                )
+                .andExpect(status().isUnauthorized())
                 .andExpect(
                         jsonPath("$.message")
                                 .value(
@@ -276,35 +253,25 @@ class SecurityIntegrationTest {
     @Test
     void authenticatedSessionCanAccessAdminEquipmentEndpoint()
             throws Exception {
-        MockHttpSession session =
-                login();
+        MockHttpSession session = login();
 
         mockMvc.perform(
-                        get(
-                                "/api/admin/equipment"
-                        )
+                        get("/api/admin/equipment")
                                 .session(session)
                 )
-                .andExpect(
-                        status().isOk()
-                );
+                .andExpect(status().isOk());
     }
 
     @Test
     void authenticatedSessionCanAccessLoanHistoryEndpoint()
             throws Exception {
-        MockHttpSession session =
-                login();
+        MockHttpSession session = login();
 
         mockMvc.perform(
-                        get(
-                                "/api/admin/loans"
-                        )
+                        get("/api/admin/loans")
                                 .session(session)
                 )
-                .andExpect(
-                        status().isOk()
-                )
+                .andExpect(status().isOk())
                 .andExpect(
                         jsonPath("$.content")
                                 .isArray()
@@ -318,41 +285,217 @@ class SecurityIntegrationTest {
                                 .value(0)
                 )
                 .andExpect(
-                        jsonPath(
-                                "$.totalElements"
-                        ).value(0)
+                        jsonPath("$.totalElements")
+                                .value(0)
                 );
+    }
+
+    @Test
+    void authenticatedAdministratorCanCompleteFullLoanLifecycle()
+            throws Exception {
+        Equipment equipment =
+                equipmentRepository.saveAndFlush(
+                        new Equipment(
+                                EquipmentType.HELMET,
+                                "FLOW-HELMET-001",
+                                "M",
+                                "Bauer",
+                                "Re-Akt 150",
+                                EquipmentCondition.GOOD,
+                                AgeCategory.JUNIOR,
+                                "Hylla A2",
+                                "Hjälm för komplett flödestest"
+                        )
+                );
+
+        MockHttpSession session = login();
+
+        MvcResult registrationResult =
+                mockMvc.perform(
+                                post(
+                                        "/api/admin/loans/{serialNumber}",
+                                        equipment.getSerialNumber()
+                                )
+                                        .session(session)
+                                        .with(csrf())
+                                        .contentType(
+                                                MediaType.APPLICATION_JSON
+                                        )
+                                        .content(validLoanJson())
+                        )
+                        .andExpect(status().isCreated())
+                        .andExpect(
+                                jsonPath("$.id")
+                                        .isNumber()
+                        )
+                        .andExpect(
+                                jsonPath(
+                                        "$.equipment.serialNumber"
+                                ).value(
+                                        "FLOW-HELMET-001"
+                                )
+                        )
+                        .andExpect(
+                                jsonPath("$.borrowerName")
+                                        .value(
+                                                "Patrik Hading"
+                                        )
+                        )
+                        .andExpect(
+                                jsonPath("$.returned")
+                                        .value(false)
+                        )
+                        .andReturn();
+
+        JsonNode registrationJson =
+                objectMapper.readTree(
+                        registrationResult
+                                .getResponse()
+                                .getContentAsString()
+                );
+
+        long loanId =
+                registrationJson
+                        .get("id")
+                        .longValue();
+
+        mockMvc.perform(
+                        get(
+                                "/api/loan/{serialNumber}",
+                                equipment.getSerialNumber()
+                        )
+                )
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath("$.available")
+                                .value(false)
+                )
+                .andExpect(
+                        jsonPath("$.active")
+                                .value(true)
+                );
+
+        mockMvc.perform(
+                        get("/api/admin/loans")
+                                .session(session)
+                                .param(
+                                        "status",
+                                        "ACTIVE"
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath("$.totalElements")
+                                .value(1)
+                )
+                .andExpect(
+                        jsonPath("$.content[0].id")
+                                .value(loanId)
+                )
+                .andExpect(
+                        jsonPath(
+                                "$.content[0].returned"
+                        ).value(false)
+                );
+
+        mockMvc.perform(
+                        put(
+                                "/api/admin/loans/{loanId}/returned",
+                                loanId
+                        )
+                                .session(session)
+                                .with(csrf())
+                )
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath("$.id")
+                                .value(loanId)
+                )
+                .andExpect(
+                        jsonPath("$.returned")
+                                .value(true)
+                )
+                .andExpect(
+                        jsonPath("$.returnedAt")
+                                .isNotEmpty()
+                );
+
+        mockMvc.perform(
+                        get(
+                                "/api/loan/{serialNumber}",
+                                equipment.getSerialNumber()
+                        )
+                )
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath("$.available")
+                                .value(true)
+                );
+
+        mockMvc.perform(
+                        get("/api/admin/loans")
+                                .session(session)
+                                .param(
+                                        "status",
+                                        "RETURNED"
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath("$.totalElements")
+                                .value(1)
+                )
+                .andExpect(
+                        jsonPath("$.content[0].id")
+                                .value(loanId)
+                )
+                .andExpect(
+                        jsonPath(
+                                "$.content[0].returned"
+                        ).value(true)
+                );
+
+        Equipment updatedEquipment =
+                equipmentRepository
+                        .findById(equipment.getId())
+                        .orElseThrow();
+
+        Loan returnedLoan =
+                loanRepository
+                        .findById(loanId)
+                        .orElseThrow();
+
+        assertThat(
+                updatedEquipment.isAvailable()
+        ).isTrue();
+
+        assertThat(
+                returnedLoan.isReturned()
+        ).isTrue();
+
+        assertThat(
+                returnedLoan.getReturnedAt()
+        ).isNotNull();
     }
 
     @Test
     void logoutInvalidatesAdministratorSession()
             throws Exception {
-        MockHttpSession session =
-                login();
+        MockHttpSession session = login();
 
         mockMvc.perform(
-                        post(
-                                "/api/auth/logout"
-                        )
+                        post("/api/auth/logout")
                                 .session(session)
                                 .with(csrf())
                 )
-                .andExpect(
-                        status().isNoContent()
-                );
+                .andExpect(status().isNoContent());
 
-        assertTrue(
-                session.isInvalid()
-        );
+        assertTrue(session.isInvalid());
 
         mockMvc.perform(
-                        get(
-                                "/api/admin/equipment"
-                        )
+                        get("/api/admin/equipment")
                 )
-                .andExpect(
-                        status().isUnauthorized()
-                );
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -364,26 +507,21 @@ class SecurityIntegrationTest {
                         )
                                 .with(csrf())
                 )
-                .andExpect(
-                        status().isUnauthorized()
-                )
+                .andExpect(status().isUnauthorized())
                 .andExpect(
                         jsonPath("$.status")
                                 .value(401)
                 )
                 .andExpect(
                         jsonPath("$.error")
-                                .value(
-                                        "Unauthorized"
-                                )
+                                .value("Unauthorized")
                 );
     }
 
     @Test
     void authenticatedReturnWithoutCsrfReturns403()
             throws Exception {
-        MockHttpSession session =
-                login();
+        MockHttpSession session = login();
 
         mockMvc.perform(
                         put(
@@ -391,18 +529,14 @@ class SecurityIntegrationTest {
                         )
                                 .session(session)
                 )
-                .andExpect(
-                        status().isForbidden()
-                );
+                .andExpect(status().isForbidden());
     }
 
     private MockHttpSession login()
             throws Exception {
         MvcResult result =
                 mockMvc.perform(
-                                post(
-                                        "/api/auth/login"
-                                )
+                                post("/api/auth/login")
                                         .with(csrf())
                                         .contentType(
                                                 MediaType.APPLICATION_JSON
@@ -413,20 +547,16 @@ class SecurityIntegrationTest {
                                                 )
                                         )
                         )
+                        .andExpect(status().isOk())
                         .andExpect(
-                                status().isOk()
+                                jsonPath("$.authenticated")
+                                        .value(true)
                         )
                         .andExpect(
-                                jsonPath(
-                                        "$.authenticated"
-                                ).value(true)
-                        )
-                        .andExpect(
-                                jsonPath(
-                                        "$.username"
-                                ).value(
-                                        "test-admin"
-                                )
+                                jsonPath("$.username")
+                                        .value(
+                                                "test-admin"
+                                        )
                         )
                         .andReturn();
 
@@ -453,8 +583,11 @@ class SecurityIntegrationTest {
                   "borrowerName": "Patrik Hading",
                   "email": "patrik@example.com",
                   "phoneNumber": "+46701234567",
-                  "expectedReturnDate": "2030-06-01"
+                  "expectedReturnDate": "%s"
                 }
-                """;
+                """.formatted(
+                LocalDate.now()
+                        .plusYears(1)
+        );
     }
 }
