@@ -19,10 +19,38 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.LocalDateTime;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final int MAX_SAFE_PATH_LENGTH =
+            200;
+
+    private static final String GENERIC_BUSINESS_MESSAGE =
+            "Åtgärden kan inte genomföras "
+                    + "i objektets nuvarande status.";
+
+    private static final Set<String>
+            SAFE_BUSINESS_MESSAGES =
+            Set.of(
+                    "Lånet är redan återlämnat.",
+                    "Utrustningen är inaktiverad "
+                            + "och kan inte lånas.",
+                    "Utrustningen är redan utlånad.",
+                    "Utrustningen har redan "
+                            + "ett aktivt lån.",
+                    "Låneformulär saknas.",
+                    "Namn måste anges.",
+                    "E-post måste anges.",
+                    "Telefonnummer måste anges.",
+                    "Förväntat återlämningsdatum "
+                            + "måste anges.",
+                    "Förväntat återlämningsdatum "
+                            + "får inte ligga före "
+                            + "utlåningsdatumet."
+            );
 
     private static final Logger log =
             LoggerFactory.getLogger(
@@ -34,7 +62,7 @@ public class GlobalExceptionHandler {
     )
     public ResponseEntity<ApiErrorResponse>
     handleNotFound(
-            ResourceNotFoundException ex,
+            ResourceNotFoundException exception,
             HttpServletRequest request
     ) {
         return buildResponse(
@@ -50,7 +78,7 @@ public class GlobalExceptionHandler {
     )
     public ResponseEntity<ApiErrorResponse>
     handleDuplicateResource(
-            DuplicateResourceException ex,
+            DuplicateResourceException exception,
             HttpServletRequest request
     ) {
         return buildResponse(
@@ -66,13 +94,15 @@ public class GlobalExceptionHandler {
     )
     public ResponseEntity<ApiErrorResponse>
     handleBusinessRule(
-            BusinessRuleException ex,
+            BusinessRuleException exception,
             HttpServletRequest request
     ) {
         return buildResponse(
                 HttpStatus.CONFLICT,
                 "Business Rule Violation",
-                ex.getMessage(),
+                safeBusinessMessage(
+                        exception.getMessage()
+                ),
                 request
         );
     }
@@ -83,7 +113,7 @@ public class GlobalExceptionHandler {
     })
     public ResponseEntity<ApiErrorResponse>
     handleBadRequest(
-            RuntimeException ex,
+            RuntimeException exception,
             HttpServletRequest request
     ) {
         return buildResponse(
@@ -99,11 +129,12 @@ public class GlobalExceptionHandler {
     )
     public ResponseEntity<ApiErrorResponse>
     handleValidation(
-            MethodArgumentNotValidException ex,
+            MethodArgumentNotValidException exception,
             HttpServletRequest request
     ) {
         String message =
-                ex.getBindingResult()
+                exception
+                        .getBindingResult()
                         .getFieldErrors()
                         .stream()
                         .map(
@@ -114,8 +145,9 @@ public class GlobalExceptionHandler {
                                                 .getDefaultMessage()
                         )
                         .collect(
-                                Collectors
-                                        .joining(", ")
+                                Collectors.joining(
+                                        ", "
+                                )
                         );
 
         return buildResponse(
@@ -131,13 +163,14 @@ public class GlobalExceptionHandler {
     )
     public ResponseEntity<ApiErrorResponse>
     handleMethodValidation(
-            HandlerMethodValidationException ex,
+            HandlerMethodValidationException exception,
             HttpServletRequest request
     ) {
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
                 "Validation Error",
-                "One or more request parameters are invalid.",
+                "One or more request parameters "
+                        + "are invalid.",
                 request
         );
     }
@@ -147,13 +180,14 @@ public class GlobalExceptionHandler {
     )
     public ResponseEntity<ApiErrorResponse>
     handleConstraintViolation(
-            ConstraintViolationException ex,
+            ConstraintViolationException exception,
             HttpServletRequest request
     ) {
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
                 "Constraint Violation",
-                "One or more request parameters are invalid.",
+                "One or more request parameters "
+                        + "are invalid.",
                 request
         );
     }
@@ -163,13 +197,14 @@ public class GlobalExceptionHandler {
     )
     public ResponseEntity<ApiErrorResponse>
     handleTypeMismatch(
-            MethodArgumentTypeMismatchException ex,
+            MethodArgumentTypeMismatchException exception,
             HttpServletRequest request
     ) {
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
                 "Invalid Parameter",
-                "One or more request parameters contain invalid values.",
+                "One or more request parameters "
+                        + "contain invalid values.",
                 request
         );
     }
@@ -179,13 +214,15 @@ public class GlobalExceptionHandler {
     )
     public ResponseEntity<ApiErrorResponse>
     handleUnreadableMessage(
-            HttpMessageNotReadableException ex,
+            HttpMessageNotReadableException exception,
             HttpServletRequest request
     ) {
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
                 "Malformed JSON",
-                "Request body is missing, malformed or contains invalid values.",
+                "Request body is missing, "
+                        + "malformed or contains "
+                        + "invalid values.",
                 request
         );
     }
@@ -195,13 +232,14 @@ public class GlobalExceptionHandler {
     )
     public ResponseEntity<ApiErrorResponse>
     handleMethodNotSupported(
-            HttpRequestMethodNotSupportedException ex,
+            HttpRequestMethodNotSupportedException exception,
             HttpServletRequest request
     ) {
         return buildResponse(
                 HttpStatus.METHOD_NOT_ALLOWED,
                 "Method Not Allowed",
-                "The requested HTTP method is not supported for this endpoint.",
+                "The requested HTTP method is not "
+                        + "supported for this endpoint.",
                 request
         );
     }
@@ -211,19 +249,28 @@ public class GlobalExceptionHandler {
     )
     public ResponseEntity<ApiErrorResponse>
     handleDataIntegrityViolation(
-            DataIntegrityViolationException ex,
+            DataIntegrityViolationException exception,
             HttpServletRequest request
     ) {
         log.warn(
-                "Database constraint violation on path: {}",
-                request.getRequestURI(),
-                ex
+                "Database constraint violation; "
+                        + "method={}, path={}, type={}",
+                safeMethod(
+                        request
+                ),
+                safePath(
+                        request
+                ),
+                exception
+                        .getClass()
+                        .getSimpleName()
         );
 
         return buildResponse(
                 HttpStatus.CONFLICT,
                 "Conflict",
-                "Request conflicts with existing data.",
+                "Request conflicts with "
+                        + "existing data.",
                 request
         );
     }
@@ -233,7 +280,7 @@ public class GlobalExceptionHandler {
     )
     public ResponseEntity<ApiErrorResponse>
     handleAuthenticationFailure(
-            AuthenticationException ex,
+            AuthenticationException exception,
             HttpServletRequest request
     ) {
         return buildResponse(
@@ -250,7 +297,7 @@ public class GlobalExceptionHandler {
     })
     public ResponseEntity<ApiErrorResponse>
     handleEndpointNotFound(
-            Exception ex,
+            Exception exception,
             HttpServletRequest request
     ) {
         return buildResponse(
@@ -261,16 +308,26 @@ public class GlobalExceptionHandler {
         );
     }
 
-    @ExceptionHandler(Exception.class)
+    @ExceptionHandler(
+            Exception.class
+    )
     public ResponseEntity<ApiErrorResponse>
     handleGenericException(
-            Exception ex,
+            Exception exception,
             HttpServletRequest request
     ) {
         log.error(
-                "Unexpected error on path: {}",
-                request.getRequestURI(),
-                ex
+                "Unexpected request failure; "
+                        + "method={}, path={}, type={}",
+                safeMethod(
+                        request
+                ),
+                safePath(
+                        request
+                ),
+                exception
+                        .getClass()
+                        .getSimpleName()
         );
 
         return buildResponse(
@@ -278,6 +335,83 @@ public class GlobalExceptionHandler {
                 "Internal Server Error",
                 "Ett oväntat fel inträffade.",
                 request
+        );
+    }
+
+    private String safeBusinessMessage(
+            String message
+    ) {
+        if (message != null
+                && SAFE_BUSINESS_MESSAGES
+                .contains(
+                        message
+                )) {
+            return message;
+        }
+
+        return GENERIC_BUSINESS_MESSAGE;
+    }
+
+    private String safeMethod(
+            HttpServletRequest request
+    ) {
+        String method =
+                request.getMethod();
+
+        if (method == null
+                || method.isBlank()) {
+            return "UNKNOWN";
+        }
+
+        return method
+                .replace(
+                        "\r",
+                        ""
+                )
+                .replace(
+                        "\n",
+                        ""
+                )
+                .replace(
+                        "\t",
+                        ""
+                );
+    }
+
+    private String safePath(
+            HttpServletRequest request
+    ) {
+        String path =
+                request.getRequestURI();
+
+        if (path == null
+                || path.isBlank()) {
+            return "/api";
+        }
+
+        String sanitized =
+                path
+                        .replace(
+                                "\r",
+                                ""
+                        )
+                        .replace(
+                                "\n",
+                                ""
+                        )
+                        .replace(
+                                "\t",
+                                ""
+                        );
+
+        if (sanitized.length()
+                <= MAX_SAFE_PATH_LENGTH) {
+            return sanitized;
+        }
+
+        return sanitized.substring(
+                0,
+                MAX_SAFE_PATH_LENGTH
         );
     }
 
@@ -294,11 +428,17 @@ public class GlobalExceptionHandler {
                         status.value(),
                         error,
                         message,
-                        request.getRequestURI()
+                        safePath(
+                                request
+                        )
                 );
 
         return ResponseEntity
-                .status(status)
-                .body(response);
+                .status(
+                        status
+                )
+                .body(
+                        response
+                );
     }
 }

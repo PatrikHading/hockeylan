@@ -69,8 +69,15 @@ function Layout() {
             </main>
 
             <footer className="border-t border-slate-200 bg-white">
-                <div className="mx-auto max-w-6xl px-4 py-5 text-sm font-semibold text-blue-950 sm:px-6 lg:px-8">
-                    HockeyLån – (c) NorOps
+                <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-5 text-sm font-semibold text-blue-950 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+                    <p>HockeyLån – © NorOps</p>
+
+                    <Link
+                        to="/integritet"
+                        className="w-fit rounded text-blue-800 underline decoration-2 underline-offset-4 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-blue-800 focus:ring-offset-2"
+                    >
+                        Integritet och personuppgifter
+                    </Link>
                 </div>
             </footer>
         </div>

@@ -43,6 +43,7 @@ pnpm-debug.log*
 frontend/.env
 frontend/.env.*
 !.env.example
+!.env.prod.example
 !frontend/.env.example
 
 # =========================

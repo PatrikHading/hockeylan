@@ -11,6 +11,7 @@ import AdminPage from "./pages/AdminPage";
 import EditEquipment from "./pages/EditEquipment";
 import HomePage from "./pages/HomePage";
 import LoanForm from "./pages/LoanForm";
+import PrivacyPage from "./pages/PrivacyPage";
 import QrCodeView from "./pages/QrCodeView";
 import QrScannerPage from "./pages/QrScannerPage";
 import ThankYou from "./pages/ThankYou";
@@ -29,6 +30,11 @@ function App() {
                     element={
                         <AdminLoginPage />
                     }
+                />
+
+                <Route
+                    path="/integritet"
+                    element={<PrivacyPage />}
                 />
 
                 <Route

@@ -24,7 +24,11 @@ import java.util.Set;
 public class RequestPayloadValidationFilter
         extends OncePerRequestFilter {
 
-    private static final Set<String> METHODS_WITH_OPTIONAL_BODY =
+    private static final int MAX_SAFE_PATH_LENGTH =
+            200;
+
+    private static final Set<String>
+            METHODS_WITH_OPTIONAL_BODY =
             Set.of(
                     HttpMethod.POST.name(),
                     HttpMethod.PUT.name(),
@@ -33,20 +37,27 @@ public class RequestPayloadValidationFilter
 
     private final ObjectMapper objectMapper;
 
-    @Value("${app.request.max-json-payload-bytes:1048576}")
+    @Value(
+            "${app.request.max-json-payload-bytes:65536}"
+    )
     private long maxJsonPayloadBytes;
 
     @Override
     protected boolean shouldNotFilter(
             HttpServletRequest request
     ) {
-        return !request.getRequestURI().startsWith("/api/")
+        return !request
+                .getRequestURI()
+                .startsWith(
+                        "/api/"
+                )
                 || HttpMethod.OPTIONS.matches(
                 request.getMethod()
         )
-                || !METHODS_WITH_OPTIONAL_BODY.contains(
-                request.getMethod()
-        );
+                || !METHODS_WITH_OPTIONAL_BODY
+                .contains(
+                        request.getMethod()
+                );
     }
 
     @Override
@@ -55,20 +66,30 @@ public class RequestPayloadValidationFilter
             HttpServletResponse response,
             FilterChain filterChain
     ) throws ServletException, IOException {
+        if (!hasRequestBody(
+                request
+        )) {
+            filterChain.doFilter(
+                    request,
+                    response
+            );
 
-        if (!hasRequestBody(request)) {
-            filterChain.doFilter(request, response);
             return;
         }
 
-        if (!hasValidJsonContentType(request)) {
+        if (!hasValidJsonContentType(
+                request
+        )) {
             writeErrorResponse(
                     response,
                     request,
-                    HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                    HttpStatus
+                            .UNSUPPORTED_MEDIA_TYPE,
                     "Unsupported Media Type",
-                    "Content-Type must be application/json."
+                    "Content-Type must be "
+                            + "application/json."
             );
+
             return;
         }
 
@@ -77,26 +98,33 @@ public class RequestPayloadValidationFilter
             writeErrorResponse(
                     response,
                     request,
-                    HttpStatus.PAYLOAD_TOO_LARGE,
-                    "Payload Too Large",
+                    HttpStatus
+                            .CONTENT_TOO_LARGE,
+                    "Content Too Large",
                     "Request body is too large."
             );
+
             return;
         }
 
-        filterChain.doFilter(request, response);
+        filterChain.doFilter(
+                request,
+                response
+        );
     }
 
     private boolean hasRequestBody(
             HttpServletRequest request
     ) {
-        if (request.getContentLengthLong() > 0) {
+        if (request.getContentLengthLong()
+                > 0) {
             return true;
         }
 
         String transferEncoding =
                 request.getHeader(
-                        HttpHeaders.TRANSFER_ENCODING
+                        HttpHeaders
+                                .TRANSFER_ENCODING
                 );
 
         return transferEncoding != null
@@ -120,9 +148,12 @@ public class RequestPayloadValidationFilter
                             contentType
                     );
 
-            return MediaType.APPLICATION_JSON
-                    .isCompatibleWith(mediaType);
-        } catch (IllegalArgumentException ex) {
+            return MediaType
+                    .APPLICATION_JSON
+                    .isCompatibleWith(
+                            mediaType
+                    );
+        } catch (IllegalArgumentException exception) {
             return false;
         }
     }
@@ -140,21 +171,68 @@ public class RequestPayloadValidationFilter
                         status.value(),
                         error,
                         message,
-                        request.getRequestURI()
+                        safePath(
+                                request
+                        )
                 );
 
-        response.setStatus(status.value());
+        response.setStatus(
+                status.value()
+        );
 
         response.setContentType(
                 MediaType.APPLICATION_JSON_VALUE
         );
 
-        response.setCharacterEncoding("UTF-8");
+        response.setCharacterEncoding(
+                "UTF-8"
+        );
 
-        response.getWriter().write(
-                objectMapper.writeValueAsString(
-                        errorResponse
-                )
+        response.setHeader(
+                HttpHeaders.CACHE_CONTROL,
+                "no-store"
+        );
+
+        objectMapper.writeValue(
+                response.getWriter(),
+                errorResponse
+        );
+    }
+
+    private String safePath(
+            HttpServletRequest request
+    ) {
+        String path =
+                request.getRequestURI();
+
+        if (path == null
+                || path.isBlank()) {
+            return "/api";
+        }
+
+        String sanitized =
+                path
+                        .replace(
+                                "\r",
+                                ""
+                        )
+                        .replace(
+                                "\n",
+                                ""
+                        )
+                        .replace(
+                                "\t",
+                                ""
+                        );
+
+        if (sanitized.length()
+                <= MAX_SAFE_PATH_LENGTH) {
+            return sanitized;
+        }
+
+        return sanitized.substring(
+                0,
+                MAX_SAFE_PATH_LENGTH
         );
     }
 }

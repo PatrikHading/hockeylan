@@ -4,6 +4,7 @@ import com.norops.hockeylan.exception.ApiErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
@@ -16,7 +17,11 @@ import java.time.LocalDateTime;
 
 @Component
 @RequiredArgsConstructor
-public class RestAccessDeniedHandler implements AccessDeniedHandler {
+public class RestAccessDeniedHandler
+        implements AccessDeniedHandler {
+
+    private static final int MAX_SAFE_PATH_LENGTH =
+            200;
 
     private final ObjectMapper objectMapper;
 
@@ -26,18 +31,68 @@ public class RestAccessDeniedHandler implements AccessDeniedHandler {
             HttpServletResponse response,
             AccessDeniedException exception
     ) throws IOException {
-        ApiErrorResponse body = new ApiErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.FORBIDDEN.value(),
-                "Forbidden",
-                "Access to this resource is forbidden.",
-                request.getRequestURI()
+        ApiErrorResponse body =
+                new ApiErrorResponse(
+                        LocalDateTime.now(),
+                        HttpStatus
+                                .FORBIDDEN
+                                .value(),
+                        "Forbidden",
+                        "Access to this resource "
+                                + "is forbidden.",
+                        safePath(
+                                request
+                        )
+                );
+
+        response.setStatus(
+                HttpStatus.FORBIDDEN.value()
         );
 
-        response.setStatus(HttpStatus.FORBIDDEN.value());
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.setCharacterEncoding("UTF-8");
+        response.setContentType(
+                MediaType.APPLICATION_JSON_VALUE
+        );
 
-        objectMapper.writeValue(response.getWriter(), body);
+        response.setCharacterEncoding(
+                "UTF-8"
+        );
+
+        response.setHeader(
+                HttpHeaders.CACHE_CONTROL,
+                "no-store"
+        );
+
+        objectMapper.writeValue(
+                response.getWriter(),
+                body
+        );
+    }
+
+    private String safePath(
+            HttpServletRequest request
+    ) {
+        String path =
+                request.getRequestURI();
+
+        if (path == null
+                || path.isBlank()) {
+            return "/api";
+        }
+
+        String sanitized =
+                path
+                        .replace("\r", "")
+                        .replace("\n", "")
+                        .replace("\t", "");
+
+        if (sanitized.length()
+                <= MAX_SAFE_PATH_LENGTH) {
+            return sanitized;
+        }
+
+        return sanitized.substring(
+                0,
+                MAX_SAFE_PATH_LENGTH
+        );
     }
 }

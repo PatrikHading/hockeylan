@@ -4,6 +4,7 @@ import com.norops.hockeylan.exception.ApiErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.AuthenticationException;
@@ -16,7 +17,11 @@ import java.time.LocalDateTime;
 
 @Component
 @RequiredArgsConstructor
-public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
+public class RestAuthenticationEntryPoint
+        implements AuthenticationEntryPoint {
+
+    private static final int MAX_SAFE_PATH_LENGTH =
+            200;
 
     private final ObjectMapper objectMapper;
 
@@ -26,18 +31,68 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
             HttpServletResponse response,
             AuthenticationException exception
     ) throws IOException {
-        ApiErrorResponse body = new ApiErrorResponse(
-                LocalDateTime.now(),
-                HttpStatus.UNAUTHORIZED.value(),
-                "Unauthorized",
-                "Administrator authentication is required.",
-                request.getRequestURI()
+        ApiErrorResponse body =
+                new ApiErrorResponse(
+                        LocalDateTime.now(),
+                        HttpStatus
+                                .UNAUTHORIZED
+                                .value(),
+                        "Unauthorized",
+                        "Administrator authentication "
+                                + "is required.",
+                        safePath(
+                                request
+                        )
+                );
+
+        response.setStatus(
+                HttpStatus.UNAUTHORIZED.value()
         );
 
-        response.setStatus(HttpStatus.UNAUTHORIZED.value());
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.setCharacterEncoding("UTF-8");
+        response.setContentType(
+                MediaType.APPLICATION_JSON_VALUE
+        );
 
-        objectMapper.writeValue(response.getWriter(), body);
+        response.setCharacterEncoding(
+                "UTF-8"
+        );
+
+        response.setHeader(
+                HttpHeaders.CACHE_CONTROL,
+                "no-store"
+        );
+
+        objectMapper.writeValue(
+                response.getWriter(),
+                body
+        );
+    }
+
+    private String safePath(
+            HttpServletRequest request
+    ) {
+        String path =
+                request.getRequestURI();
+
+        if (path == null
+                || path.isBlank()) {
+            return "/api";
+        }
+
+        String sanitized =
+                path
+                        .replace("\r", "")
+                        .replace("\n", "")
+                        .replace("\t", "");
+
+        if (sanitized.length()
+                <= MAX_SAFE_PATH_LENGTH) {
+            return sanitized;
+        }
+
+        return sanitized.substring(
+                0,
+                MAX_SAFE_PATH_LENGTH
+        );
     }
 }

@@ -89,7 +89,7 @@ class SecurityIntegrationTest {
     }
 
     @Test
-    void publicLoanPostEndpointNoLongerRegistersLoans()
+    void anonymousPublicLoanPostIsRejected()
             throws Exception {
         mockMvc.perform(
                         post(
@@ -104,8 +104,23 @@ class SecurityIntegrationTest {
                                 )
                 )
                 .andExpect(
-                        status()
-                                .isMethodNotAllowed()
+                        status().isUnauthorized()
+                )
+                .andExpect(
+                        jsonPath("$.status")
+                                .value(401)
+                )
+                .andExpect(
+                        jsonPath("$.error")
+                                .value(
+                                        "Unauthorized"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.message")
+                                .value(
+                                        "Administrator authentication is required."
+                                )
                 );
     }
 

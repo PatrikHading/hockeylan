@@ -7,6 +7,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
@@ -28,63 +30,135 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class AuthController {
 
-    private final AuthenticationManager authenticationManager;
-    private final SecurityContextRepository securityContextRepository;
-    private final SessionAuthenticationStrategy sessionAuthenticationStrategy;
+    private final AuthenticationManager
+            authenticationManager;
+
+    private final SecurityContextRepository
+            securityContextRepository;
+
+    private final SessionAuthenticationStrategy
+            sessionAuthenticationStrategy;
 
     @GetMapping("/csrf")
-    public CsrfTokenResponse csrf(CsrfToken csrfToken) {
-        return new CsrfTokenResponse(
-                csrfToken.getToken(),
-                csrfToken.getHeaderName()
+    public ResponseEntity<CsrfTokenResponse>
+    csrf(
+            CsrfToken csrfToken
+    ) {
+        CsrfTokenResponse response =
+                new CsrfTokenResponse(
+                        csrfToken.getToken(),
+                        csrfToken.getHeaderName()
+                );
+
+        return noStoreResponse(
+                response
         );
     }
 
     @GetMapping("/session")
-    public AuthSessionResponse session(Authentication authentication) {
-        boolean authenticated = authentication != null
-                && authentication.isAuthenticated()
-                && !(authentication instanceof AnonymousAuthenticationToken);
+    public ResponseEntity<AuthSessionResponse>
+    session(
+            Authentication authentication
+    ) {
+        boolean authenticated =
+                authentication != null
+                        && authentication
+                        .isAuthenticated()
+                        && !(authentication
+                        instanceof
+                        AnonymousAuthenticationToken);
 
-        return new AuthSessionResponse(
-                authenticated,
-                authenticated ? authentication.getName() : null
+        AuthSessionResponse response =
+                new AuthSessionResponse(
+                        authenticated,
+                        authenticated
+                                ? authentication
+                                .getName()
+                                : null
+                );
+
+        return noStoreResponse(
+                response
         );
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthSessionResponse> login(
-            @Valid @RequestBody LoginRequest loginRequest,
+    public ResponseEntity<AuthSessionResponse>
+    login(
+            @Valid
+            @RequestBody
+            LoginRequest loginRequest,
+
             HttpServletRequest request,
+
             HttpServletResponse response
     ) {
-        Authentication authentication = authenticationManager.authenticate(
-                UsernamePasswordAuthenticationToken.unauthenticated(
-                        loginRequest.username().trim(),
-                        loginRequest.password()
-                )
-        );
+        Authentication authentication =
+                authenticationManager
+                        .authenticate(
+                                UsernamePasswordAuthenticationToken
+                                        .unauthenticated(
+                                                loginRequest
+                                                        .username()
+                                                        .trim(),
+                                                loginRequest
+                                                        .password()
+                                        )
+                        );
 
-        sessionAuthenticationStrategy.onAuthentication(
-                authentication,
-                request,
-                response
-        );
+        sessionAuthenticationStrategy
+                .onAuthentication(
+                        authentication,
+                        request,
+                        response
+                );
 
         SecurityContext securityContext =
-                SecurityContextHolder.createEmptyContext();
+                SecurityContextHolder
+                        .createEmptyContext();
 
-        securityContext.setAuthentication(authentication);
-        SecurityContextHolder.setContext(securityContext);
-
-        securityContextRepository.saveContext(
-                securityContext,
-                request,
-                response
+        securityContext.setAuthentication(
+                authentication
         );
 
-        return ResponseEntity.ok(
-                new AuthSessionResponse(true, authentication.getName())
+        SecurityContextHolder.setContext(
+                securityContext
         );
+
+        securityContextRepository
+                .saveContext(
+                        securityContext,
+                        request,
+                        response
+                );
+
+        AuthSessionResponse authResponse =
+                new AuthSessionResponse(
+                        true,
+                        authentication.getName()
+                );
+
+        return noStoreResponse(
+                authResponse
+        );
+    }
+
+    private <T> ResponseEntity<T>
+    noStoreResponse(
+            T body
+    ) {
+        return ResponseEntity
+                .ok()
+                .cacheControl(
+                        CacheControl
+                                .noStore()
+                )
+                .header(
+                        HttpHeaders.PRAGMA,
+                        "no-cache"
+                )
+                .body(
+                        body
+                );
     }
 }
