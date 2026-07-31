@@ -8,6 +8,7 @@ import FormField from "../ui/FormField";
 
 function EquipmentForm({
                            formData,
+                           fieldErrors = {},
                            onChange,
                            onSubmit,
                            onCancel,
@@ -19,20 +20,21 @@ function EquipmentForm({
         <form
             onSubmit={onSubmit}
             className="space-y-5"
+            noValidate
+            aria-busy={saving}
         >
             <div className="grid gap-5 sm:grid-cols-2">
                 <FormField
                     id="type"
                     label="Typ av utrustning"
                     required
+                    error={fieldErrors.type}
                     helperText="Välj den kategori som passar bäst."
                 >
                     <select
-                        id="type"
                         name="type"
                         value={formData.type}
                         onChange={onChange}
-                        required
                         disabled={saving}
                     >
                         {equipmentTypes.map(
@@ -52,6 +54,10 @@ function EquipmentForm({
                     id="serialNumber"
                     label="Serienummer"
                     required
+                    error={
+                        fieldErrors
+                            .serialNumber
+                    }
                     helperText={
                         showSerialNumberWarning
                             ? "Om serienumret ändras behöver en ny QR-etikett skrivas ut."
@@ -59,19 +65,20 @@ function EquipmentForm({
                     }
                 >
                     <input
-                        id="serialNumber"
                         name="serialNumber"
                         value={
-                            formData.serialNumber
+                            formData
+                                .serialNumber
                         }
                         onChange={onChange}
                         placeholder="Exempel: HELMET-001"
                         autoComplete="off"
+                        autoCapitalize="characters"
+                        spellCheck="false"
                         minLength={2}
                         maxLength={50}
                         pattern="[A-Za-z0-9_-]+"
                         title="Använd endast bokstäver, siffror, bindestreck och understreck."
-                        required
                         disabled={saving}
                     />
                 </FormField>
@@ -81,10 +88,10 @@ function EquipmentForm({
                 <FormField
                     id="size"
                     label="Storlek"
+                    error={fieldErrors.size}
                     helperText="Exempel: M, 42, 150 cm eller Junior."
                 >
                     <input
-                        id="size"
                         name="size"
                         value={formData.size}
                         onChange={onChange}
@@ -97,13 +104,17 @@ function EquipmentForm({
                 <FormField
                     id="ageCategory"
                     label="Ålderskategori"
+                    error={
+                        fieldErrors
+                            .ageCategory
+                    }
                     helperText="Valfritt för utrustning utan tydlig ålderskategori."
                 >
                     <select
-                        id="ageCategory"
                         name="ageCategory"
                         value={
-                            formData.ageCategory
+                            formData
+                                .ageCategory
                         }
                         onChange={onChange}
                         disabled={saving}
@@ -112,8 +123,8 @@ function EquipmentForm({
                             (category) => (
                                 <option
                                     key={
-                                        category.value
-                                        || "NONE"
+                                        category.value ||
+                                        "NONE"
                                     }
                                     value={
                                         category.value
@@ -131,10 +142,10 @@ function EquipmentForm({
                 <FormField
                     id="brand"
                     label="Märke"
+                    error={fieldErrors.brand}
                     helperText="Exempel: Bauer, CCM eller Warrior."
                 >
                     <input
-                        id="brand"
                         name="brand"
                         value={formData.brand}
                         onChange={onChange}
@@ -147,10 +158,10 @@ function EquipmentForm({
                 <FormField
                     id="model"
                     label="Modell"
+                    error={fieldErrors.model}
                     helperText="Ange modellnamnet om det är känt."
                 >
                     <input
-                        id="model"
                         name="model"
                         value={formData.model}
                         onChange={onChange}
@@ -166,16 +177,17 @@ function EquipmentForm({
                     id="condition"
                     label="Skick"
                     required
+                    error={
+                        fieldErrors.condition
+                    }
                     helperText="Bedöm utrustningens nuvarande skick."
                 >
                     <select
-                        id="condition"
                         name="condition"
                         value={
                             formData.condition
                         }
                         onChange={onChange}
-                        required
                         disabled={saving}
                     >
                         {equipmentConditions.map(
@@ -198,10 +210,13 @@ function EquipmentForm({
                 <FormField
                     id="storageLocation"
                     label="Förvaringsplats"
+                    error={
+                        fieldErrors
+                            .storageLocation
+                    }
                     helperText="Intern plats där utrustningen finns."
                 >
                     <input
-                        id="storageLocation"
                         name="storageLocation"
                         value={
                             formData
@@ -218,16 +233,18 @@ function EquipmentForm({
             <FormField
                 id="description"
                 label="Beskrivning"
+                error={
+                    fieldErrors.description
+                }
                 helperText="Fri text för information som inte passar i de separata fälten."
             >
                 <textarea
-                    id="description"
                     name="description"
                     value={
                         formData.description
                     }
                     onChange={onChange}
-                    rows="4"
+                    rows={4}
                     placeholder="Exempel: Svart hjälm med genomskinligt visir."
                     maxLength={500}
                     disabled={saving}
@@ -248,13 +265,12 @@ function EquipmentForm({
 
                 <Button
                     type="submit"
-                    disabled={saving}
+                    loading={saving}
+                    loadingText="Sparar..."
                     fullWidth
                     className="sm:w-auto"
                 >
-                    {saving
-                        ? "Sparar..."
-                        : submitText}
+                    {submitText}
                 </Button>
             </div>
         </form>

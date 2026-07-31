@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.validation.FieldError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -19,16 +20,24 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    private static final int MAX_SAFE_PATH_LENGTH =
-            200;
+    private static final Logger log =
+            LoggerFactory.getLogger(
+                    GlobalExceptionHandler.class
+            );
 
-    private static final String GENERIC_BUSINESS_MESSAGE =
+    private static final int
+            MAX_SAFE_PATH_LENGTH = 200;
+
+    private static final String
+            GENERIC_BUSINESS_MESSAGE =
             "Åtgärden kan inte genomföras "
                     + "i objektets nuvarande status.";
 
@@ -52,9 +61,107 @@ public class GlobalExceptionHandler {
                             + "utlåningsdatumet."
             );
 
-    private static final Logger log =
-            LoggerFactory.getLogger(
-                    GlobalExceptionHandler.class
+    private static final Map<String, String>
+            SWEDISH_VALIDATION_MESSAGES =
+            Map.ofEntries(
+                    Map.entry(
+                            "Equipment type is required",
+                            "Typ av utrustning måste anges."
+                    ),
+                    Map.entry(
+                            "Serial number is required",
+                            "Serienummer måste anges."
+                    ),
+                    Map.entry(
+                            "Serial number must be "
+                                    + "between 2 and 50 characters",
+                            "Serienumret måste innehålla "
+                                    + "mellan 2 och 50 tecken."
+                    ),
+                    Map.entry(
+                            "Serial number may only contain "
+                                    + "letters, numbers, hyphens "
+                                    + "and underscores",
+                            "Serienumret får endast innehålla "
+                                    + "bokstäver, siffror, "
+                                    + "bindestreck och understreck."
+                    ),
+                    Map.entry(
+                            "Equipment condition is required",
+                            "Utrustningens skick måste anges."
+                    ),
+                    Map.entry(
+                            "Name is required",
+                            "Namn måste anges."
+                    ),
+                    Map.entry(
+                            "Name must be between "
+                                    + "2 and 100 characters",
+                            "Namnet måste innehålla mellan "
+                                    + "2 och 100 tecken."
+                    ),
+                    Map.entry(
+                            "Name contains invalid characters",
+                            "Namnet innehåller otillåtna tecken."
+                    ),
+                    Map.entry(
+                            "Email is required",
+                            "E-post måste anges."
+                    ),
+                    Map.entry(
+                            "Email must be valid",
+                            "Ange en giltig e-postadress."
+                    ),
+                    Map.entry(
+                            "Phone number is required",
+                            "Telefonnummer måste anges."
+                    ),
+                    Map.entry(
+                            "Phone number must be between "
+                                    + "6 and 30 characters",
+                            "Telefonnumret måste innehålla "
+                                    + "mellan 6 och 30 tecken."
+                    ),
+                    Map.entry(
+                            "Phone number contains "
+                                    + "invalid characters",
+                            "Telefonnumret innehåller "
+                                    + "otillåtna tecken."
+                    ),
+                    Map.entry(
+                            "Expected return date is required",
+                            "Förväntat återlämningsdatum "
+                                    + "måste anges."
+                    ),
+                    Map.entry(
+                            "Expected return date must be "
+                                    + "today or a future date",
+                            "Förväntat återlämningsdatum "
+                                    + "måste vara idag eller "
+                                    + "ett framtida datum."
+                    ),
+                    Map.entry(
+                            "Active status is required",
+                            "Aktiv status måste anges."
+                    ),
+                    Map.entry(
+                            "Username is required.",
+                            "Användarnamn måste anges."
+                    ),
+                    Map.entry(
+                            "Username may contain at most "
+                                    + "100 characters.",
+                            "Användarnamnet får innehålla "
+                                    + "högst 100 tecken."
+                    ),
+                    Map.entry(
+                            "Password is required.",
+                            "Lösenord måste anges."
+                    ),
+                    Map.entry(
+                            "Password is too long.",
+                            "Lösenordet är för långt."
+                    )
             );
 
     @ExceptionHandler(
@@ -65,10 +172,15 @@ public class GlobalExceptionHandler {
             ResourceNotFoundException exception,
             HttpServletRequest request
     ) {
+        ApiErrorCode code =
+                resolveNotFoundCode(
+                        exception
+                );
+
         return buildResponse(
                 HttpStatus.NOT_FOUND,
-                "Not Found",
-                "Requested resource was not found.",
+                code,
+                notFoundMessage(code),
                 request
         );
     }
@@ -83,8 +195,9 @@ public class GlobalExceptionHandler {
     ) {
         return buildResponse(
                 HttpStatus.CONFLICT,
-                "Conflict",
-                "Resource already exists.",
+                exception.getCode(),
+                "Det finns redan en resurs "
+                        + "med samma unika uppgifter.",
                 request
         );
     }
@@ -97,9 +210,14 @@ public class GlobalExceptionHandler {
             BusinessRuleException exception,
             HttpServletRequest request
     ) {
+        ApiErrorCode code =
+                resolveBusinessCode(
+                        exception
+                );
+
         return buildResponse(
                 HttpStatus.CONFLICT,
-                "Business Rule Violation",
+                code,
                 safeBusinessMessage(
                         exception.getMessage()
                 ),
@@ -118,8 +236,8 @@ public class GlobalExceptionHandler {
     ) {
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
-                "Bad Request",
-                "Request could not be processed.",
+                ApiErrorCode.INVALID_REQUEST,
+                "Begäran kunde inte behandlas.",
                 request
         );
     }
@@ -132,29 +250,33 @@ public class GlobalExceptionHandler {
             MethodArgumentNotValidException exception,
             HttpServletRequest request
     ) {
-        String message =
-                exception
-                        .getBindingResult()
-                        .getFieldErrors()
-                        .stream()
-                        .map(
-                                error ->
-                                        error.getField()
-                                                + ": "
-                                                + error
-                                                .getDefaultMessage()
+        Map<String, String> fieldErrors =
+                new LinkedHashMap<>();
+
+        exception
+                .getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .sorted(
+                        Comparator.comparingInt(
+                                this::validationPriority
                         )
-                        .collect(
-                                Collectors.joining(
-                                        ", "
+                )
+                .forEach(error ->
+                        fieldErrors.putIfAbsent(
+                                error.getField(),
+                                translateValidationMessage(
+                                        error.getDefaultMessage()
                                 )
-                        );
+                        )
+                );
 
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
-                "Validation Error",
-                message,
-                request
+                ApiErrorCode.VALIDATION_FAILED,
+                "Kontrollera de markerade fälten.",
+                request,
+                fieldErrors
         );
     }
 
@@ -166,11 +288,7 @@ public class GlobalExceptionHandler {
             HandlerMethodValidationException exception,
             HttpServletRequest request
     ) {
-        return buildResponse(
-                HttpStatus.BAD_REQUEST,
-                "Validation Error",
-                "One or more request parameters "
-                        + "are invalid.",
+        return validationResponse(
                 request
         );
     }
@@ -183,11 +301,7 @@ public class GlobalExceptionHandler {
             ConstraintViolationException exception,
             HttpServletRequest request
     ) {
-        return buildResponse(
-                HttpStatus.BAD_REQUEST,
-                "Constraint Violation",
-                "One or more request parameters "
-                        + "are invalid.",
+        return validationResponse(
                 request
         );
     }
@@ -202,9 +316,9 @@ public class GlobalExceptionHandler {
     ) {
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
-                "Invalid Parameter",
-                "One or more request parameters "
-                        + "contain invalid values.",
+                ApiErrorCode.INVALID_REQUEST,
+                "En eller flera parametrar "
+                        + "innehåller ogiltiga värden.",
                 request
         );
     }
@@ -219,10 +333,9 @@ public class GlobalExceptionHandler {
     ) {
         return buildResponse(
                 HttpStatus.BAD_REQUEST,
-                "Malformed JSON",
-                "Request body is missing, "
-                        + "malformed or contains "
-                        + "invalid values.",
+                ApiErrorCode.MALFORMED_REQUEST,
+                "Request body saknas, har fel format "
+                        + "eller innehåller ogiltiga värden.",
                 request
         );
     }
@@ -237,9 +350,9 @@ public class GlobalExceptionHandler {
     ) {
         return buildResponse(
                 HttpStatus.METHOD_NOT_ALLOWED,
-                "Method Not Allowed",
-                "The requested HTTP method is not "
-                        + "supported for this endpoint.",
+                ApiErrorCode.METHOD_NOT_ALLOWED,
+                "HTTP-metoden stöds inte "
+                        + "för denna endpoint.",
                 request
         );
     }
@@ -255,12 +368,8 @@ public class GlobalExceptionHandler {
         log.warn(
                 "Database constraint violation; "
                         + "method={}, path={}, type={}",
-                safeMethod(
-                        request
-                ),
-                safePath(
-                        request
-                ),
+                safeMethod(request),
+                safePath(request),
                 exception
                         .getClass()
                         .getSimpleName()
@@ -268,9 +377,9 @@ public class GlobalExceptionHandler {
 
         return buildResponse(
                 HttpStatus.CONFLICT,
-                "Conflict",
-                "Request conflicts with "
-                        + "existing data.",
+                ApiErrorCode.DATA_CONFLICT,
+                "Begäran står i konflikt "
+                        + "med befintliga data.",
                 request
         );
     }
@@ -285,8 +394,9 @@ public class GlobalExceptionHandler {
     ) {
         return buildResponse(
                 HttpStatus.UNAUTHORIZED,
-                "Unauthorized",
-                "Invalid username or password.",
+                ApiErrorCode.INVALID_CREDENTIALS,
+                "Felaktigt användarnamn "
+                        + "eller lösenord.",
                 request
         );
     }
@@ -302,8 +412,9 @@ public class GlobalExceptionHandler {
     ) {
         return buildResponse(
                 HttpStatus.NOT_FOUND,
-                "Not Found",
-                "Requested endpoint was not found.",
+                ApiErrorCode.ENDPOINT_NOT_FOUND,
+                "Den begärda API-endpointen "
+                        + "finns inte.",
                 request
         );
     }
@@ -319,12 +430,8 @@ public class GlobalExceptionHandler {
         log.error(
                 "Unexpected request failure; "
                         + "method={}, path={}, type={}",
-                safeMethod(
-                        request
-                ),
-                safePath(
-                        request
-                ),
+                safeMethod(request),
+                safePath(request),
                 exception
                         .getClass()
                         .getSimpleName()
@@ -332,10 +439,93 @@ public class GlobalExceptionHandler {
 
         return buildResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR,
-                "Internal Server Error",
+                ApiErrorCode.INTERNAL_SERVER_ERROR,
                 "Ett oväntat fel inträffade.",
                 request
         );
+    }
+
+    private ResponseEntity<ApiErrorResponse>
+    validationResponse(
+            HttpServletRequest request
+    ) {
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                ApiErrorCode.VALIDATION_FAILED,
+                "En eller flera parametrar "
+                        + "är ogiltiga.",
+                request
+        );
+    }
+
+    private ApiErrorCode resolveBusinessCode(
+            BusinessRuleException exception
+    ) {
+        if (exception.getCode()
+                != ApiErrorCode
+                .BUSINESS_RULE_VIOLATION) {
+            return exception.getCode();
+        }
+
+        return switch (
+                String.valueOf(
+                        exception.getMessage()
+                )
+                ) {
+            case "Utrustningen är redan utlånad.",
+                 "Utrustningen har redan "
+                         + "ett aktivt lån." ->
+                    ApiErrorCode
+                            .EQUIPMENT_ALREADY_LOANED;
+
+            case "Utrustningen är inaktiverad "
+                         + "och kan inte lånas." ->
+                    ApiErrorCode
+                            .EQUIPMENT_INACTIVE;
+
+            case "Lånet är redan återlämnat." ->
+                    ApiErrorCode
+                            .LOAN_ALREADY_RETURNED;
+
+            default ->
+                    ApiErrorCode
+                            .BUSINESS_RULE_VIOLATION;
+        };
+    }
+
+    private ApiErrorCode resolveNotFoundCode(
+            ResourceNotFoundException exception
+    ) {
+        if (exception.getCode()
+                != ApiErrorCode
+                .RESOURCE_NOT_FOUND) {
+            return exception.getCode();
+        }
+
+        String message =
+                exception.getMessage();
+
+        return message != null
+                && message.startsWith(
+                "Equipment not found"
+        )
+                ? ApiErrorCode
+                .EQUIPMENT_NOT_FOUND
+                : ApiErrorCode
+                .RESOURCE_NOT_FOUND;
+    }
+
+    private String notFoundMessage(
+            ApiErrorCode code
+    ) {
+        if (code
+                == ApiErrorCode
+                .EQUIPMENT_NOT_FOUND) {
+            return "Utrustningen kunde inte hittas.";
+        }
+
+        return "Den begärda resursen "
+                + "kunde inte hittas.";
     }
 
     private String safeBusinessMessage(
@@ -343,13 +533,58 @@ public class GlobalExceptionHandler {
     ) {
         if (message != null
                 && SAFE_BUSINESS_MESSAGES
-                .contains(
-                        message
-                )) {
+                .contains(message)) {
             return message;
         }
 
         return GENERIC_BUSINESS_MESSAGE;
+    }
+
+    private int validationPriority(
+            FieldError error
+    ) {
+        String validationCode =
+                error.getCode();
+
+        if (validationCode == null) {
+            return 100;
+        }
+
+        return switch (validationCode) {
+            case "NotBlank",
+                 "NotNull",
+                 "NotEmpty" -> 0;
+
+            case "Email",
+                 "Pattern",
+                 "Future",
+                 "FutureOrPresent",
+                 "Past",
+                 "PastOrPresent" -> 10;
+
+            case "Size",
+                 "Min",
+                 "Max",
+                 "DecimalMin",
+                 "DecimalMax" -> 20;
+
+            default -> 50;
+        };
+    }
+
+    private String translateValidationMessage(
+            String message
+    ) {
+        if (message == null
+                || message.isBlank()) {
+            return "Värdet är ogiltigt.";
+        }
+
+        return SWEDISH_VALIDATION_MESSAGES
+                .getOrDefault(
+                        message,
+                        "Värdet är ogiltigt."
+                );
     }
 
     private String safeMethod(
@@ -363,19 +598,9 @@ public class GlobalExceptionHandler {
             return "UNKNOWN";
         }
 
-        return method
-                .replace(
-                        "\r",
-                        ""
-                )
-                .replace(
-                        "\n",
-                        ""
-                )
-                .replace(
-                        "\t",
-                        ""
-                );
+        return removeControlCharacters(
+                method
+        );
     }
 
     private String safePath(
@@ -390,19 +615,9 @@ public class GlobalExceptionHandler {
         }
 
         String sanitized =
-                path
-                        .replace(
-                                "\r",
-                                ""
-                        )
-                        .replace(
-                                "\n",
-                                ""
-                        )
-                        .replace(
-                                "\t",
-                                ""
-                        );
+                removeControlCharacters(
+                        path
+                );
 
         if (sanitized.length()
                 <= MAX_SAFE_PATH_LENGTH) {
@@ -415,30 +630,52 @@ public class GlobalExceptionHandler {
         );
     }
 
+    private String removeControlCharacters(
+            String value
+    ) {
+        return value
+                .replace("\r", "")
+                .replace("\n", "")
+                .replace("\t", "");
+    }
+
     private ResponseEntity<ApiErrorResponse>
     buildResponse(
             HttpStatus status,
-            String error,
+            ApiErrorCode code,
             String message,
             HttpServletRequest request
+    ) {
+        return buildResponse(
+                status,
+                code,
+                message,
+                request,
+                Map.of()
+        );
+    }
+
+    private ResponseEntity<ApiErrorResponse>
+    buildResponse(
+            HttpStatus status,
+            ApiErrorCode code,
+            String message,
+            HttpServletRequest request,
+            Map<String, String> fieldErrors
     ) {
         ApiErrorResponse response =
                 new ApiErrorResponse(
                         LocalDateTime.now(),
                         status.value(),
-                        error,
+                        status.getReasonPhrase(),
+                        code,
                         message,
-                        safePath(
-                                request
-                        )
+                        safePath(request),
+                        fieldErrors
                 );
 
         return ResponseEntity
-                .status(
-                        status
-                )
-                .body(
-                        response
-                );
+                .status(status)
+                .body(response);
     }
 }

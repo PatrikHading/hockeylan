@@ -10,38 +10,66 @@ import {
 import PrivacyPage from "../PrivacyPage";
 
 describe("PrivacyPage", () => {
-    test("describes the personal data and processing purpose", () => {
+    test("renders named main landmark and page heading", () => {
         render(<PrivacyPage />);
 
         expect(
-            screen.getByRole("heading", {
-                level: 1,
-                name: "Så behandlar HockeyLån personuppgifter",
-            }),
+            screen.getByRole(
+                "main",
+                {
+                    name:
+                        "Så behandlar HockeyLån personuppgifter",
+                }
+            )
         ).toBeInTheDocument();
 
         expect(
-            screen.getByText("låntagarens namn,"),
+            screen.getByRole(
+                "heading",
+                {
+                    level: 1,
+                    name:
+                        "Så behandlar HockeyLån personuppgifter",
+                }
+            )
         ).toBeInTheDocument();
+    });
+
+    test("describes personal data and processing purpose", () => {
+        render(<PrivacyPage />);
 
         expect(
-            screen.getByText("e-postadress,"),
-        ).toBeInTheDocument();
-
-        expect(
-            screen.getByText("telefonnummer,"),
-        ).toBeInTheDocument();
-
-        expect(
-            screen.getByRole("heading", {
-                name: "Varför uppgifterna behandlas",
-            }),
+            screen.getByText(
+                "låntagarens namn,"
+            )
         ).toBeInTheDocument();
 
         expect(
             screen.getByText(
-                /uppgifterna används för att administrera utlåning/i,
-            ),
+                "e-postadress,"
+            )
+        ).toBeInTheDocument();
+
+        expect(
+            screen.getByText(
+                "telefonnummer,"
+            )
+        ).toBeInTheDocument();
+
+        expect(
+            screen.getByRole(
+                "heading",
+                {
+                    name:
+                        "Varför uppgifterna behandlas",
+                }
+            )
+        ).toBeInTheDocument();
+
+        expect(
+            screen.getByText(
+                /uppgifterna används för att administrera utlåning/i
+            )
         ).toBeInTheDocument();
     });
 
@@ -50,48 +78,54 @@ describe("PrivacyPage", () => {
 
         expect(
             screen.getByText(
-                /tekniskt nödvändiga cookies/i,
-            ),
+                /tekniskt nödvändiga cookies/i
+            )
         ).toBeInTheDocument();
 
         expect(
             screen.getByText(
-                /namn, e-postadress och telefonnummer ska inte skrivas/i,
-            ),
+                /namn, e-postadress och telefonnummer ska inte skrivas/i
+            )
         ).toBeInTheDocument();
 
         expect(
             screen.getByText(
-                /använder inte cookies för reklam/i,
-            ),
+                /använder inte cookies för reklam/i
+            )
         ).toBeInTheDocument();
     });
 
-    test("marks unresolved business decisions", () => {
+    test("marks unresolved business decisions as notes", () => {
         render(<PrivacyPage />);
 
         expect(
-            screen.getByText(
-                "Verksamhetsbeslut krävs före produktion",
-            ),
-        ).toBeInTheDocument();
+            screen.getByRole(
+                "note",
+                {
+                    name:
+                        /verksamhetsbeslut krävs/i,
+                }
+            )
+        ).toHaveTextContent(
+            /lagringstid.*raderingsrutin/i
+        );
+
+        expect(
+            screen.getByRole(
+                "note",
+                {
+                    name:
+                        /informationen måste kompletteras/i,
+                }
+            )
+        ).toHaveTextContent(
+            /rättslig grund för behandlingen/i
+        );
 
         expect(
             screen.getByText(
-                "Informationen måste kompletteras",
-            ),
-        ).toBeInTheDocument();
-
-        expect(
-            screen.getByText(
-                /någon lagringstid anges inte här/i,
-            ),
-        ).toBeInTheDocument();
-
-        expect(
-            screen.getByText(
-                /rättslig grund för behandlingen/i,
-            ),
+                /någon lagringstid anges inte här/i
+            )
         ).toBeInTheDocument();
     });
 });

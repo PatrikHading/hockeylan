@@ -23,6 +23,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @Testcontainers
@@ -55,7 +56,8 @@ class SecurityHardeningIntegrationTest {
                         )
                         .andExpect(
                                 header().string(
-                                        HttpHeaders.CACHE_CONTROL,
+                                        HttpHeaders
+                                                .CACHE_CONTROL,
                                         "no-store"
                                 )
                         )
@@ -113,7 +115,8 @@ class SecurityHardeningIntegrationTest {
                 )
                 .andExpect(
                         header().string(
-                                HttpHeaders.CACHE_CONTROL,
+                                HttpHeaders
+                                        .CACHE_CONTROL,
                                 "no-store"
                         )
                 )
@@ -174,6 +177,46 @@ class SecurityHardeningIntegrationTest {
                 )
                 .andExpect(
                         status().isUnauthorized()
+                )
+                .andExpect(
+                        jsonPath("$.status")
+                                .value(401)
+                )
+                .andExpect(
+                        jsonPath("$.error")
+                                .value(
+                                        "Unauthorized"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.code")
+                                .value(
+                                        "AUTHENTICATION_REQUIRED"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.message")
+                                .value(
+                                        "Du behöver logga in "
+                                                + "som administratör."
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.path")
+                                .value(
+                                        "/api/not-allowed"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.fieldErrors")
+                                .isEmpty()
+                )
+                .andExpect(
+                        header().string(
+                                HttpHeaders
+                                        .CACHE_CONTROL,
+                                "no-store"
+                        )
                 );
     }
 
@@ -209,6 +252,33 @@ class SecurityHardeningIntegrationTest {
                 )
                 .andExpect(
                         status().isForbidden()
+                )
+                .andExpect(
+                        jsonPath("$.status")
+                                .value(403)
+                )
+                .andExpect(
+                        jsonPath("$.error")
+                                .value(
+                                        "Forbidden"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.code")
+                                .value(
+                                        "ACCESS_DENIED"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.message")
+                                .value(
+                                        "Du saknar behörighet "
+                                                + "för åtgärden."
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.fieldErrors")
+                                .isEmpty()
                 );
     }
 
@@ -231,6 +301,27 @@ class SecurityHardeningIntegrationTest {
                 )
                 .andExpect(
                         status().isForbidden()
+                )
+                .andExpect(
+                        jsonPath("$.status")
+                                .value(403)
+                )
+                .andExpect(
+                        jsonPath("$.code")
+                                .value(
+                                        "ACCESS_DENIED"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.message")
+                                .value(
+                                        "Du saknar behörighet "
+                                                + "för åtgärden."
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.fieldErrors")
+                                .isEmpty()
                 );
     }
 
@@ -244,6 +335,27 @@ class SecurityHardeningIntegrationTest {
                 )
                 .andExpect(
                         status().isForbidden()
+                )
+                .andExpect(
+                        jsonPath("$.status")
+                                .value(403)
+                )
+                .andExpect(
+                        jsonPath("$.code")
+                                .value(
+                                        "ACCESS_DENIED"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.message")
+                                .value(
+                                        "Du saknar behörighet "
+                                                + "för åtgärden."
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.fieldErrors")
+                                .isEmpty()
                 );
     }
 
@@ -254,16 +366,15 @@ class SecurityHardeningIntegrationTest {
                         post(
                                 "/api/auth/logout"
                         )
-                                .with(
-                                        csrf()
-                                )
+                                .with(csrf())
                 )
                 .andExpect(
                         status().isNoContent()
                 )
                 .andExpect(
                         header().string(
-                                HttpHeaders.CACHE_CONTROL,
+                                HttpHeaders
+                                        .CACHE_CONTROL,
                                 "no-store"
                         )
                 );

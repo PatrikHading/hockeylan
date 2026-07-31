@@ -1,10 +1,9 @@
 import {
-    Link,
     useLocation,
 } from "react-router";
 import Alert from "../components/ui/Alert";
 import Badge from "../components/ui/Badge";
-import Button from "../components/ui/Button";
+import LinkButton from "../components/ui/LinkButton";
 
 const typeLabels = {
     COMPLETE_KIT:
@@ -28,7 +27,10 @@ export default function ThankYou() {
 
     if (!loanId) {
         return (
-            <div className="mobile-page safe-bottom">
+            <main
+                className="mobile-page safe-bottom"
+                aria-labelledby="missing-summary-heading"
+            >
                 <Alert
                     title="Ingen lånesammanfattning"
                     variant="warning"
@@ -37,36 +39,52 @@ export default function ThankYou() {
                     från administratörsvyn.
                 </Alert>
 
+                <h1
+                    id="missing-summary-heading"
+                    className="sr-only"
+                >
+                    Lånesammanfattning saknas
+                </h1>
+
                 <div className="mt-4">
-                    <Link to="/admin">
-                        <Button>
-                            Till adminvyn
-                        </Button>
-                    </Link>
+                    <LinkButton
+                        to="/admin"
+                    >
+                        Till adminvyn
+                    </LinkButton>
                 </div>
-            </div>
+            </main>
         );
     }
 
     return (
-        <div className="mobile-page safe-bottom space-y-6">
+        <main
+            className="mobile-page safe-bottom space-y-6"
+            aria-labelledby="loan-success-heading"
+        >
             <section className="mobile-card rounded-3xl bg-white p-6 text-center shadow-sm">
                 <Badge variant="success">
                     Lån registrerat
                 </Badge>
 
-                <h1 className="mt-4">
+                <h1
+                    id="loan-success-heading"
+                    className="mt-4"
+                >
                     Registreringen är klar
                 </h1>
 
-                <p className="mt-2 text-slate-600">
+                <p className="mt-2 text-slate-700">
                     Utrustningen är nu
                     markerad som utlånad.
                 </p>
             </section>
 
-            <section className="mobile-card rounded-3xl bg-white p-5 shadow-sm sm:p-6">
-                <h2>
+            <section
+                className="mobile-card rounded-3xl bg-white p-5 shadow-sm sm:p-6"
+                aria-labelledby="loan-summary-heading"
+            >
+                <h2 id="loan-summary-heading">
                     Sammanfattning
                 </h2>
 
@@ -81,7 +99,8 @@ export default function ThankYou() {
                         value={
                             typeLabels[
                                 equipmentType
-                                ] || equipmentType
+                                ] ||
+                            equipmentType
                         }
                     />
 
@@ -97,51 +116,44 @@ export default function ThankYou() {
 
                     <SummaryItem
                         label="Registrerat"
-                        value={
-                            formatDateTime(
-                                loanDate
-                            )
-                        }
+                        value={formatDateTime(
+                            loanDate
+                        )}
                     />
 
                     <SummaryItem
                         label="Förväntad återlämning"
-                        value={
-                            formatDate(
-                                expectedReturnDate
-                            )
-                        }
+                        value={formatDate(
+                            expectedReturnDate
+                        )}
                     />
                 </dl>
             </section>
 
-            <section className="flex flex-col gap-3 sm:flex-row">
-                <Link
+            <nav
+                className="flex flex-col gap-3 sm:flex-row"
+                aria-label="Fortsätt efter registrerat lån"
+            >
+                <LinkButton
                     to="/admin"
+                    size="lg"
+                    fullWidth
                     className="sm:flex-1"
                 >
-                    <Button
-                        fullWidth
-                        size="lg"
-                    >
-                        Till utrustningen
-                    </Button>
-                </Link>
+                    Till utrustningen
+                </LinkButton>
 
-                <Link
+                <LinkButton
                     to="/admin/loans"
+                    variant="outline"
+                    size="lg"
+                    fullWidth
                     className="sm:flex-1"
                 >
-                    <Button
-                        variant="outline"
-                        fullWidth
-                        size="lg"
-                    >
-                        Visa lånehistorik
-                    </Button>
-                </Link>
-            </section>
-        </div>
+                    Visa lånehistorik
+                </LinkButton>
+            </nav>
+        </main>
     );
 }
 
@@ -150,12 +162,12 @@ function SummaryItem({
                          value,
                      }) {
     return (
-        <div className="rounded-2xl bg-slate-50 p-4">
-            <dt className="text-xs font-bold uppercase tracking-wide text-slate-500">
+        <div className="min-w-0 rounded-2xl bg-slate-50 p-4">
+            <dt className="text-xs font-bold uppercase tracking-wide text-slate-700">
                 {label}
             </dt>
 
-            <dd className="mt-1 font-semibold text-slate-900">
+            <dd className="mt-1 break-words font-semibold text-slate-900">
                 {value || "–"}
             </dd>
         </div>
@@ -174,7 +186,9 @@ function formatDate(value) {
             timeZone: "UTC",
         }
     ).format(
-        new Date(`${value}T00:00:00Z`)
+        new Date(
+            `${value}T00:00:00Z`
+        )
     );
 }
 

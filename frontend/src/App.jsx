@@ -11,6 +11,7 @@ import AdminPage from "./pages/AdminPage";
 import EditEquipment from "./pages/EditEquipment";
 import HomePage from "./pages/HomePage";
 import LoanForm from "./pages/LoanForm";
+import NotFoundPage from "./pages/NotFoundPage";
 import PrivacyPage from "./pages/PrivacyPage";
 import QrCodeView from "./pages/QrCodeView";
 import QrScannerPage from "./pages/QrScannerPage";
@@ -27,9 +28,7 @@ function App() {
 
                 <Route
                     path="/admin/login"
-                    element={
-                        <AdminLoginPage />
-                    }
+                    element={<AdminLoginPage />}
                 />
 
                 <Route
@@ -37,11 +36,7 @@ function App() {
                     element={<PrivacyPage />}
                 />
 
-                <Route
-                    element={
-                        <ProtectedAdminRoute />
-                    }
-                >
+                <Route element={<ProtectedAdminRoute />}>
                     <Route
                         path="/admin"
                         element={<AdminPage />}
@@ -49,30 +44,22 @@ function App() {
 
                     <Route
                         path="/admin/loans"
-                        element={
-                            <ActiveLoansPage />
-                        }
+                        element={<ActiveLoansPage />}
                     />
 
                     <Route
                         path="/admin/add"
-                        element={
-                            <AddEquipment />
-                        }
+                        element={<AddEquipment />}
                     />
 
                     <Route
                         path="/admin/equipment/:id/edit"
-                        element={
-                            <EditEquipment />
-                        }
+                        element={<EditEquipment />}
                     />
 
                     <Route
                         path="/admin/qr/:id"
-                        element={
-                            <QrCodeView />
-                        }
+                        element={<QrCodeView />}
                     />
 
                     <Route
@@ -87,11 +74,14 @@ function App() {
 
                     <Route
                         path="/scan"
-                        element={
-                            <QrScannerPage />
-                        }
+                        element={<QrScannerPage />}
                     />
                 </Route>
+
+                <Route
+                    path="*"
+                    element={<NotFoundPage />}
+                />
             </Route>
         </Routes>
     );

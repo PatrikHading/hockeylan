@@ -1,5 +1,6 @@
 package com.norops.hockeylan.security;
 
+import com.norops.hockeylan.exception.ApiErrorCode;
 import com.norops.hockeylan.exception.ApiErrorResponse;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -17,6 +18,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Set;
 
 @Component
@@ -24,8 +26,8 @@ import java.util.Set;
 public class RequestPayloadValidationFilter
         extends OncePerRequestFilter {
 
-    private static final int MAX_SAFE_PATH_LENGTH =
-            200;
+    private static final int
+            MAX_SAFE_PATH_LENGTH = 200;
 
     private static final Set<String>
             METHODS_WITH_OPTIONAL_BODY =
@@ -66,9 +68,7 @@ public class RequestPayloadValidationFilter
             HttpServletResponse response,
             FilterChain filterChain
     ) throws ServletException, IOException {
-        if (!hasRequestBody(
-                request
-        )) {
+        if (!hasRequestBody(request)) {
             filterChain.doFilter(
                     request,
                     response
@@ -77,16 +77,15 @@ public class RequestPayloadValidationFilter
             return;
         }
 
-        if (!hasValidJsonContentType(
-                request
-        )) {
+        if (!hasValidJsonContentType(request)) {
             writeErrorResponse(
                     response,
                     request,
                     HttpStatus
                             .UNSUPPORTED_MEDIA_TYPE,
-                    "Unsupported Media Type",
-                    "Content-Type must be "
+                    ApiErrorCode
+                            .UNSUPPORTED_MEDIA_TYPE,
+                    "Content-Type måste vara "
                             + "application/json."
             );
 
@@ -100,8 +99,9 @@ public class RequestPayloadValidationFilter
                     request,
                     HttpStatus
                             .CONTENT_TOO_LARGE,
-                    "Content Too Large",
-                    "Request body is too large."
+                    ApiErrorCode
+                            .PAYLOAD_TOO_LARGE,
+                    "Begäran är för stor."
             );
 
             return;
@@ -153,7 +153,9 @@ public class RequestPayloadValidationFilter
                     .isCompatibleWith(
                             mediaType
                     );
-        } catch (IllegalArgumentException exception) {
+        } catch (
+                IllegalArgumentException exception
+        ) {
             return false;
         }
     }
@@ -162,18 +164,18 @@ public class RequestPayloadValidationFilter
             HttpServletResponse response,
             HttpServletRequest request,
             HttpStatus status,
-            String error,
+            ApiErrorCode code,
             String message
     ) throws IOException {
         ApiErrorResponse errorResponse =
                 new ApiErrorResponse(
                         LocalDateTime.now(),
                         status.value(),
-                        error,
+                        status.getReasonPhrase(),
+                        code,
                         message,
-                        safePath(
-                                request
-                        )
+                        safePath(request),
+                        Map.of()
                 );
 
         response.setStatus(
@@ -181,7 +183,8 @@ public class RequestPayloadValidationFilter
         );
 
         response.setContentType(
-                MediaType.APPLICATION_JSON_VALUE
+                MediaType
+                        .APPLICATION_JSON_VALUE
         );
 
         response.setCharacterEncoding(

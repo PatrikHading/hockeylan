@@ -1,29 +1,171 @@
-import { render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router'
-import { describe, expect, test } from 'vitest'
-import HomePage from '../HomePage'
+import {
+    render,
+    screen,
+} from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import {
+    MemoryRouter,
+    Route,
+    Routes,
+} from "react-router";
+import {
+    describe,
+    expect,
+    test,
+} from "vitest";
+import HomePage from "../HomePage";
 
-describe('HomePage', () => {
-    test('renders homepage content', () => {
-        render(
-            <MemoryRouter>
-                <HomePage />
-            </MemoryRouter>
-        )
+function renderHomePage() {
+    return render(
+        <MemoryRouter
+            initialEntries={["/"]}
+        >
+            <Routes>
+                <Route
+                    path="/"
+                    element={<HomePage />}
+                />
 
-        expect(screen.getByRole('heading', { name: /hockeylån/i })).toBeInTheDocument()
-        expect(screen.getByText(/hantera hockeyutrustning snabbt och enkelt/i)).toBeInTheDocument()
-        expect(screen.getByText(/så fungerar det/i)).toBeInTheDocument()
-    })
+                <Route
+                    path="/scan"
+                    element={
+                        <main>
+                            QR-skanner
+                        </main>
+                    }
+                />
 
-    test('renders navigation links', () => {
-        render(
-            <MemoryRouter>
-                <HomePage />
-            </MemoryRouter>
-        )
+                <Route
+                    path="/admin"
+                    element={
+                        <main>
+                            Adminpanel
+                        </main>
+                    }
+                />
+            </Routes>
+        </MemoryRouter>
+    );
+}
 
-        expect(screen.getByRole('link', { name: /skanna qr-kod/i })).toHaveAttribute('href', '/scan')
-        expect(screen.getByRole('link', { name: /öppna admin-panel/i })).toHaveAttribute('href', '/admin')
-    })
-})
+describe("HomePage", () => {
+    test("renders homepage content in main landmark", () => {
+        renderHomePage();
+
+        const main =
+            screen.getByRole("main");
+
+        expect(main).toHaveAccessibleName(
+            "HockeyLån"
+        );
+
+        expect(
+            screen.getByRole(
+                "heading",
+                {
+                    level: 1,
+                    name: "HockeyLån",
+                }
+            )
+        ).toBeInTheDocument();
+
+        expect(
+            screen.getByText(
+                /hantera hockeyutrustning snabbt och enkelt/i
+            )
+        ).toBeInTheDocument();
+
+        expect(
+            screen.getByRole(
+                "heading",
+                {
+                    name:
+                        /så fungerar det/i,
+                }
+            )
+        ).toBeInTheDocument();
+
+        expect(
+            screen.getByRole("list")
+        ).toHaveTextContent(
+            /skanna qr-koden/i
+        );
+    });
+
+    test("renders links without nested buttons", () => {
+        renderHomePage();
+
+        const scannerLink =
+            screen.getByRole(
+                "link",
+                {
+                    name:
+                        /skanna qr-kod/i,
+                }
+            );
+
+        const adminLink =
+            screen.getByRole(
+                "link",
+                {
+                    name:
+                        /öppna adminpanel/i,
+                }
+            );
+
+        expect(
+            scannerLink
+        ).toHaveAttribute(
+            "href",
+            "/scan"
+        );
+
+        expect(
+            adminLink
+        ).toHaveAttribute(
+            "href",
+            "/admin"
+        );
+
+        expect(
+            scannerLink.querySelector(
+                "button"
+            )
+        ).not.toBeInTheDocument();
+
+        expect(
+            adminLink.querySelector(
+                "button"
+            )
+        ).not.toBeInTheDocument();
+    });
+
+    test("supports keyboard navigation to scanner", async () => {
+        const user =
+            userEvent.setup();
+
+        renderHomePage();
+
+        await user.tab();
+
+        expect(
+            screen.getByRole(
+                "link",
+                {
+                    name:
+                        /skanna qr-kod/i,
+                }
+            )
+        ).toHaveFocus();
+
+        await user.keyboard(
+            "{Enter}"
+        );
+
+        expect(
+            await screen.findByText(
+                "QR-skanner"
+            )
+        ).toBeInTheDocument();
+    });
+});

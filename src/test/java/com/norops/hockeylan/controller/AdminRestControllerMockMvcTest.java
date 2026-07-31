@@ -51,13 +51,18 @@ class AdminRestControllerMockMvcTest {
                 "http://localhost:5173"
         );
 
-        mockMvc = MockMvcBuilders
-                .standaloneSetup(controller)
-                .setControllerAdvice(
-                        new GlobalExceptionHandler()
-                )
-                .setValidator(validator())
-                .build();
+        mockMvc =
+                MockMvcBuilders
+                        .standaloneSetup(
+                                controller
+                        )
+                        .setControllerAdvice(
+                                new GlobalExceptionHandler()
+                        )
+                        .setValidator(
+                                validator()
+                        )
+                        .build();
     }
 
     @Test
@@ -68,7 +73,8 @@ class AdminRestControllerMockMvcTest {
                         .addEquipment(any())
         ).thenThrow(
                 new DuplicateResourceException(
-                        "Equipment with serial number already exists: HELMET-001"
+                        "Equipment with serial number "
+                                + "already exists: HELMET-001"
                 )
         );
 
@@ -92,12 +98,21 @@ class AdminRestControllerMockMvcTest {
                 )
                 .andExpect(
                         jsonPath("$.error")
-                                .value("Conflict")
+                                .value(
+                                        "Conflict"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.code")
+                                .value(
+                                        "DUPLICATE_RESOURCE"
+                                )
                 )
                 .andExpect(
                         jsonPath("$.message")
                                 .value(
-                                        "Resource already exists."
+                                        "Det finns redan en resurs "
+                                                + "med samma unika uppgifter."
                                 )
                 )
                 .andExpect(
@@ -105,6 +120,10 @@ class AdminRestControllerMockMvcTest {
                                 .value(
                                         "/api/admin/equipment"
                                 )
+                )
+                .andExpect(
+                        jsonPath("$.fieldErrors")
+                                .isEmpty()
                 );
     }
 
@@ -118,7 +137,8 @@ class AdminRestControllerMockMvcTest {
                 )
         ).thenThrow(
                 new DuplicateResourceException(
-                        "Equipment with serial number already exists: HELMET-001"
+                        "Equipment with serial number "
+                                + "already exists: HELMET-001"
                 )
         );
 
@@ -142,12 +162,21 @@ class AdminRestControllerMockMvcTest {
                 )
                 .andExpect(
                         jsonPath("$.error")
-                                .value("Conflict")
+                                .value(
+                                        "Conflict"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.code")
+                                .value(
+                                        "DUPLICATE_RESOURCE"
+                                )
                 )
                 .andExpect(
                         jsonPath("$.message")
                                 .value(
-                                        "Resource already exists."
+                                        "Det finns redan en resurs "
+                                                + "med samma unika uppgifter."
                                 )
                 )
                 .andExpect(
@@ -155,6 +184,10 @@ class AdminRestControllerMockMvcTest {
                                 .value(
                                         "/api/admin/equipment/2"
                                 )
+                )
+                .andExpect(
+                        jsonPath("$.fieldErrors")
+                                .isEmpty()
                 );
     }
 
@@ -190,13 +223,21 @@ class AdminRestControllerMockMvcTest {
                 .andExpect(
                         jsonPath("$.error")
                                 .value(
-                                        "Malformed JSON"
+                                        "Bad Request"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.code")
+                                .value(
+                                        "MALFORMED_REQUEST"
                                 )
                 )
                 .andExpect(
                         jsonPath("$.message")
                                 .value(
-                                        "Request body is missing, malformed or contains invalid values."
+                                        "Request body saknas, "
+                                                + "har fel format eller "
+                                                + "innehåller ogiltiga värden."
                                 )
                 )
                 .andExpect(
@@ -204,6 +245,10 @@ class AdminRestControllerMockMvcTest {
                                 .value(
                                         "/api/admin/equipment"
                                 )
+                )
+                .andExpect(
+                        jsonPath("$.fieldErrors")
+                                .isEmpty()
                 );
     }
 
@@ -238,18 +283,47 @@ class AdminRestControllerMockMvcTest {
                 .andExpect(
                         jsonPath("$.error")
                                 .value(
-                                        "Validation Error"
+                                        "Bad Request"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.code")
+                                .value(
+                                        "VALIDATION_FAILED"
                                 )
                 )
                 .andExpect(
                         jsonPath("$.message")
-                                .isNotEmpty()
+                                .value(
+                                        "Kontrollera de markerade fälten."
+                                )
                 )
                 .andExpect(
                         jsonPath("$.path")
                                 .value(
                                         "/api/admin/equipment"
                                 )
+                )
+                .andExpect(
+                        jsonPath(
+                                "$.fieldErrors.type"
+                        ).value(
+                                "Typ av utrustning måste anges."
+                        )
+                )
+                .andExpect(
+                        jsonPath(
+                                "$.fieldErrors.serialNumber"
+                        ).value(
+                                "Serienummer måste anges."
+                        )
+                )
+                .andExpect(
+                        jsonPath(
+                                "$.fieldErrors.condition"
+                        ).value(
+                                "Utrustningens skick måste anges."
+                        )
                 );
     }
 
@@ -284,15 +358,34 @@ class AdminRestControllerMockMvcTest {
                 .andExpect(
                         jsonPath("$.error")
                                 .value(
-                                        "Malformed JSON"
+                                        "Bad Request"
                                 )
+                )
+                .andExpect(
+                        jsonPath("$.code")
+                                .value(
+                                        "MALFORMED_REQUEST"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.message")
+                                .value(
+                                        "Request body saknas, "
+                                                + "har fel format eller "
+                                                + "innehåller ogiltiga värden."
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.fieldErrors")
+                                .isEmpty()
                 );
     }
 
     @Test
     void addEquipmentShouldReturn400WhenBrandIsTooLong()
             throws Exception {
-        String longBrand = "B".repeat(101);
+        String longBrand =
+                "B".repeat(101);
 
         String json = """
                 {
@@ -322,14 +415,27 @@ class AdminRestControllerMockMvcTest {
                 .andExpect(
                         jsonPath("$.error")
                                 .value(
-                                        "Validation Error"
+                                        "Bad Request"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.code")
+                                .value(
+                                        "VALIDATION_FAILED"
                                 )
                 )
                 .andExpect(
                         jsonPath("$.message")
                                 .value(
-                                        "brand: Brand must be max 100 characters"
+                                        "Kontrollera de markerade fälten."
                                 )
+                )
+                .andExpect(
+                        jsonPath(
+                                "$.fieldErrors.brand"
+                        ).value(
+                                "Värdet är ogiltigt."
+                        )
                 );
     }
 
@@ -359,12 +465,20 @@ class AdminRestControllerMockMvcTest {
                 )
                 .andExpect(
                         jsonPath("$.error")
-                                .value("Not Found")
+                                .value(
+                                        "Not Found"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.code")
+                                .value(
+                                        "EQUIPMENT_NOT_FOUND"
+                                )
                 )
                 .andExpect(
                         jsonPath("$.message")
                                 .value(
-                                        "Requested resource was not found."
+                                        "Utrustningen kunde inte hittas."
                                 )
                 )
                 .andExpect(
@@ -372,6 +486,10 @@ class AdminRestControllerMockMvcTest {
                                 .value(
                                         "/api/admin/equipment/99"
                                 )
+                )
+                .andExpect(
+                        jsonPath("$.fieldErrors")
+                                .isEmpty()
                 );
     }
 
@@ -408,10 +526,32 @@ class AdminRestControllerMockMvcTest {
                                 .value(404)
                 )
                 .andExpect(
+                        jsonPath("$.error")
+                                .value(
+                                        "Not Found"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.code")
+                                .value(
+                                        "EQUIPMENT_NOT_FOUND"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.message")
+                                .value(
+                                        "Utrustningen kunde inte hittas."
+                                )
+                )
+                .andExpect(
                         jsonPath("$.path")
                                 .value(
                                         "/api/admin/equipment/99"
                                 )
+                )
+                .andExpect(
+                        jsonPath("$.fieldErrors")
+                                .isEmpty()
                 );
     }
 
@@ -453,10 +593,32 @@ class AdminRestControllerMockMvcTest {
                                 .value(404)
                 )
                 .andExpect(
+                        jsonPath("$.error")
+                                .value(
+                                        "Not Found"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.code")
+                                .value(
+                                        "EQUIPMENT_NOT_FOUND"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.message")
+                                .value(
+                                        "Utrustningen kunde inte hittas."
+                                )
+                )
+                .andExpect(
                         jsonPath("$.path")
                                 .value(
                                         "/api/admin/equipment/99/active"
                                 )
+                )
+                .andExpect(
+                        jsonPath("$.fieldErrors")
+                                .isEmpty()
                 );
     }
 
@@ -486,12 +648,20 @@ class AdminRestControllerMockMvcTest {
                 )
                 .andExpect(
                         jsonPath("$.error")
-                                .value("Not Found")
+                                .value(
+                                        "Not Found"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.code")
+                                .value(
+                                        "EQUIPMENT_NOT_FOUND"
+                                )
                 )
                 .andExpect(
                         jsonPath("$.message")
                                 .value(
-                                        "Requested resource was not found."
+                                        "Utrustningen kunde inte hittas."
                                 )
                 )
                 .andExpect(
@@ -499,6 +669,10 @@ class AdminRestControllerMockMvcTest {
                                 .value(
                                         "/api/admin/equipment/99/qr"
                                 )
+                )
+                .andExpect(
+                        jsonPath("$.fieldErrors")
+                                .isEmpty()
                 );
     }
 

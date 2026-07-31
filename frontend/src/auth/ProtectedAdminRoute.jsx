@@ -7,8 +7,19 @@ export default function ProtectedAdminRoute() {
 
     if (loading) {
         return (
-            <div className="py-12 text-center">
-                <p>Kontrollerar administratörssession...</p>
+            <div
+                className="py-12 text-center"
+                role="status"
+                aria-live="polite"
+                aria-busy="true"
+            >
+                <p className="font-medium text-slate-700">
+                    Kontrollerar administratörssession...
+                </p>
+
+                <span className="sr-only">
+                    Vänta medan din administratörssession kontrolleras.
+                </span>
             </div>
         );
     }

@@ -1,5 +1,6 @@
 package com.norops.hockeylan.security;
 
+import com.norops.hockeylan.exception.ApiErrorCode;
 import com.norops.hockeylan.exception.ApiErrorResponse;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -30,11 +31,11 @@ public class InMemoryRateLimitFilter
     private static final String LOGIN_PATH =
             "/api/auth/login";
 
-    private static final int MAX_CLIENT_KEY_LENGTH =
-            64;
+    private static final int
+            MAX_CLIENT_KEY_LENGTH = 64;
 
-    private static final int MAX_RESPONSE_PATH_LENGTH =
-            200;
+    private static final int
+            MAX_RESPONSE_PATH_LENGTH = 200;
 
     private final RateLimitProperties properties;
 
@@ -62,7 +63,6 @@ public class InMemoryRateLimitFilter
             HttpServletResponse response,
             FilterChain filterChain
     ) throws ServletException, IOException {
-
         boolean loginRequest =
                 isLoginRequest(request);
 
@@ -227,8 +227,7 @@ public class InMemoryRateLimitFilter
     private void removeOldestEntries() {
         int entriesToRemove =
                 buckets.size()
-                        - properties
-                        .getMaxEntries()
+                        - properties.getMaxEntries()
                         + 1;
 
         if (entriesToRemove <= 0) {
@@ -249,7 +248,9 @@ public class InMemoryRateLimitFilter
                 .limit(entriesToRemove)
                 .map(Map.Entry::getKey)
                 .toList()
-                .forEach(buckets::remove);
+                .forEach(
+                        buckets::remove
+                );
     }
 
     private void writeRateLimitResponse(
@@ -263,12 +264,17 @@ public class InMemoryRateLimitFilter
                         HttpStatus
                                 .TOO_MANY_REQUESTS
                                 .value(),
-                        "Too Many Requests",
+                        HttpStatus
+                                .TOO_MANY_REQUESTS
+                                .getReasonPhrase(),
+                        ApiErrorCode
+                                .RATE_LIMIT_EXCEEDED,
                         "För många anrop. "
                                 + "Försök igen senare.",
                         safeResponsePath(
                                 request
-                        )
+                        ),
+                        Map.of()
                 );
 
         response.setStatus(
@@ -278,7 +284,8 @@ public class InMemoryRateLimitFilter
         );
 
         response.setContentType(
-                MediaType.APPLICATION_JSON_VALUE
+                MediaType
+                        .APPLICATION_JSON_VALUE
         );
 
         response.setCharacterEncoding(
@@ -313,7 +320,8 @@ public class InMemoryRateLimitFilter
                 || path.length()
                 > MAX_RESPONSE_PATH_LENGTH
                 || path.contains("\r")
-                || path.contains("\n")) {
+                || path.contains("\n")
+                || path.contains("\t")) {
             return "/api";
         }
 
@@ -359,7 +367,8 @@ public class InMemoryRateLimitFilter
                     lastRefillTimestamp;
         }
 
-        private synchronized boolean tryConsume() {
+        private synchronized boolean
+        tryConsume() {
             long currentTimestamp =
                     System.currentTimeMillis();
 

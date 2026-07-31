@@ -57,17 +57,18 @@ class AdminLoanRestControllerTest {
                         FIXED_CLOCK
                 );
 
-        mockMvc = MockMvcBuilders
-                .standaloneSetup(
-                        controller
-                )
-                .setControllerAdvice(
-                        new GlobalExceptionHandler()
-                )
-                .setValidator(
-                        validator()
-                )
-                .build();
+        mockMvc =
+                MockMvcBuilders
+                        .standaloneSetup(
+                                controller
+                        )
+                        .setControllerAdvice(
+                                new GlobalExceptionHandler()
+                        )
+                        .setValidator(
+                                validator()
+                        )
+                        .build();
     }
 
     @Test
@@ -164,23 +165,37 @@ class AdminLoanRestControllerTest {
                                 .content(json)
                 )
                 .andExpect(
-                        status()
-                                .isBadRequest()
+                        status().isBadRequest()
+                )
+                .andExpect(
+                        jsonPath("$.status")
+                                .value(400)
                 )
                 .andExpect(
                         jsonPath("$.error")
                                 .value(
-                                        "Validation Error"
+                                        "Bad Request"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.code")
+                                .value(
+                                        "VALIDATION_FAILED"
                                 )
                 )
                 .andExpect(
                         jsonPath("$.message")
                                 .value(
-                                        org.hamcrest.Matchers
-                                                .containsString(
-                                                        "expectedReturnDate"
-                                                )
+                                        "Kontrollera de markerade fälten."
                                 )
+                )
+                .andExpect(
+                        jsonPath(
+                                "$.fieldErrors.expectedReturnDate"
+                        ).value(
+                                "Förväntat återlämningsdatum "
+                                        + "måste anges."
+                        )
                 );
 
         verify(
@@ -214,8 +229,38 @@ class AdminLoanRestControllerTest {
                                 .content(json)
                 )
                 .andExpect(
-                        status()
-                                .isBadRequest()
+                        status().isBadRequest()
+                )
+                .andExpect(
+                        jsonPath("$.status")
+                                .value(400)
+                )
+                .andExpect(
+                        jsonPath("$.error")
+                                .value(
+                                        "Bad Request"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.code")
+                                .value(
+                                        "VALIDATION_FAILED"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.message")
+                                .value(
+                                        "Kontrollera de markerade fälten."
+                                )
+                )
+                .andExpect(
+                        jsonPath(
+                                "$.fieldErrors.expectedReturnDate"
+                        ).value(
+                                "Förväntat återlämningsdatum "
+                                        + "måste vara idag eller "
+                                        + "ett framtida datum."
+                        )
                 );
 
         verify(
@@ -312,10 +357,30 @@ class AdminLoanRestControllerTest {
                         status().isConflict()
                 )
                 .andExpect(
+                        jsonPath("$.status")
+                                .value(409)
+                )
+                .andExpect(
+                        jsonPath("$.error")
+                                .value(
+                                        "Conflict"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.code")
+                                .value(
+                                        "EQUIPMENT_ALREADY_LOANED"
+                                )
+                )
+                .andExpect(
                         jsonPath("$.message")
                                 .value(
                                         "Utrustningen är redan utlånad."
                                 )
+                )
+                .andExpect(
+                        jsonPath("$.fieldErrors")
+                                .isEmpty()
                 );
     }
 
@@ -332,13 +397,14 @@ class AdminLoanRestControllerTest {
         equipment.setId(1L);
         equipment.setAvailable(false);
 
-        Loan loan = new Loan(
-                equipment,
-                "Patrik Hading",
-                "patrik@example.com",
-                "+46701234567",
-                expectedReturnDate
-        );
+        Loan loan =
+                new Loan(
+                        equipment,
+                        "Patrik Hading",
+                        "patrik@example.com",
+                        "+46701234567",
+                        expectedReturnDate
+                );
 
         loan.setId(10L);
 

@@ -10,29 +10,54 @@ import api, {
 } from "../api/api";
 import { AuthContext } from "./useAuth";
 
-export function AuthProvider({ children }) {
-    const [admin, setAdmin] = useState(null);
-    const [loading, setLoading] = useState(true);
+export function AuthProvider({
+                                 children,
+                             }) {
+    const [admin, setAdmin] =
+        useState(null);
 
-    const refreshSession = useCallback(async () => {
-        try {
-            await initializeCsrf();
+    const [loading, setLoading] =
+        useState(true);
 
-            const response = await api.get("/auth/session");
+    const [
+        sessionExpired,
+        setSessionExpired,
+    ] = useState(false);
 
-            if (response.data.authenticated) {
-                setAdmin({
-                    username: response.data.username,
-                });
-            } else {
+    const refreshSession =
+        useCallback(async () => {
+            try {
+                await initializeCsrf();
+
+                const response =
+                    await api.get(
+                        "/auth/session"
+                    );
+
+                if (
+                    response
+                        .data
+                        .authenticated
+                ) {
+                    setAdmin({
+                        username:
+                        response
+                            .data
+                            .username,
+                    });
+
+                    setSessionExpired(
+                        false
+                    );
+                } else {
+                    setAdmin(null);
+                }
+            } catch {
                 setAdmin(null);
+            } finally {
+                setLoading(false);
             }
-        } catch {
-            setAdmin(null);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+        }, []);
 
     useEffect(() => {
         refreshSession();
@@ -41,6 +66,7 @@ export function AuthProvider({ children }) {
     useEffect(() => {
         function handleUnauthorized() {
             setAdmin(null);
+            setSessionExpired(true);
         }
 
         window.addEventListener(
@@ -56,46 +82,82 @@ export function AuthProvider({ children }) {
         };
     }, []);
 
-    async function login(username, password) {
+    async function login(
+        username,
+        password
+    ) {
         await initializeCsrf();
 
-        const response = await api.post("/auth/login", {
-            username,
-            password,
-        });
+        const response =
+            await api.post(
+                "/auth/login",
+                {
+                    username,
+                    password,
+                }
+            );
 
         setAdmin({
-            username: response.data.username,
+            username:
+            response.data.username,
         });
+
+        setSessionExpired(false);
     }
 
     async function logout() {
         try {
             await initializeCsrf();
-            await api.post("/auth/logout");
+
+            await api.post(
+                "/auth/logout"
+            );
         } finally {
             setAdmin(null);
+            setSessionExpired(false);
 
-            await initializeCsrf().catch(() => {
-                // A new CSRF-token can be fetched during the next request.
-            });
+            await initializeCsrf()
+                .catch(() => {
+                    /*
+                     * En ny CSRF-token
+                     * hämtas inför nästa
+                     * skrivande anrop.
+                     */
+                });
         }
     }
 
-    const value = useMemo(
-        () => ({
-            admin,
-            authenticated: Boolean(admin),
-            loading,
-            login,
-            logout,
-            refreshSession,
-        }),
-        [admin, loading, refreshSession]
-    );
+    const clearSessionExpired =
+        useCallback(() => {
+            setSessionExpired(false);
+        }, []);
+
+    const value =
+        useMemo(
+            () => ({
+                admin,
+                authenticated:
+                    Boolean(admin),
+                loading,
+                sessionExpired,
+                login,
+                logout,
+                refreshSession,
+                clearSessionExpired,
+            }),
+            [
+                admin,
+                loading,
+                sessionExpired,
+                refreshSession,
+                clearSessionExpired,
+            ]
+        );
 
     return (
-        <AuthContext.Provider value={value}>
+        <AuthContext.Provider
+            value={value}
+        >
             {children}
         </AuthContext.Provider>
     );

@@ -1,5 +1,6 @@
 package com.norops.hockeylan.security;
 
+import com.norops.hockeylan.exception.ApiErrorCode;
 import com.norops.hockeylan.exception.ApiErrorResponse;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,6 +14,7 @@ import tools.jackson.databind.ObjectMapper;
 import java.io.PrintWriter;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -29,6 +31,9 @@ class InMemoryRateLimitFilterTest {
     private FilterChain filterChain;
 
     private InMemoryRateLimitFilter filter;
+
+    private ApiErrorResponse
+            writtenErrorResponse;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -82,13 +87,20 @@ class InMemoryRateLimitFilterTest {
                             0
                     );
 
+            writtenErrorResponse =
+                    invocation.getArgument(
+                            1
+                    );
+
             writer.write(
                     """
                     {
                       "status": 429,
                       "error": "Too Many Requests",
+                      "code": "RATE_LIMIT_EXCEEDED",
                       "message": "För många anrop. Försök igen senare.",
-                      "path": "/api/auth/login"
+                      "path": "/api/auth/login",
+                      "fieldErrors": {}
                     }
                     """
             );
@@ -179,6 +191,43 @@ class InMemoryRateLimitFilterTest {
                                 )
                         )
         );
+
+        assertNotNull(
+                writtenErrorResponse
+        );
+
+        assertEquals(
+                429,
+                writtenErrorResponse.status()
+        );
+
+        assertEquals(
+                "Too Many Requests",
+                writtenErrorResponse.error()
+        );
+
+        assertEquals(
+                ApiErrorCode
+                        .RATE_LIMIT_EXCEEDED,
+                writtenErrorResponse.code()
+        );
+
+        assertEquals(
+                "För många anrop. "
+                        + "Försök igen senare.",
+                writtenErrorResponse.message()
+        );
+
+        assertEquals(
+                "/api/auth/login",
+                writtenErrorResponse.path()
+        );
+
+        assertTrue(
+                writtenErrorResponse
+                        .fieldErrors()
+                        .isEmpty()
+        );
     }
 
     @Test
@@ -198,7 +247,8 @@ class InMemoryRateLimitFilterTest {
                 null
         );
 
-        MockHttpServletResponse otherClientResponse =
+        MockHttpServletResponse
+                otherClientResponse =
                 performRequest(
                         "/api/auth/login",
                         "POST",
@@ -272,6 +322,68 @@ class InMemoryRateLimitFilterTest {
                 429,
                 thirdResponse.getStatus()
         );
+
+        assertNotNull(
+                writtenErrorResponse
+        );
+
+        assertEquals(
+                ApiErrorCode
+                        .RATE_LIMIT_EXCEEDED,
+                writtenErrorResponse.code()
+        );
+    }
+
+    @Test
+    void fallsBackToSafePathForControlCharacters()
+            throws Exception {
+        performRequest(
+                "/api/auth/login\r\nInjected",
+                "POST",
+                "203.0.113.45",
+                null
+        );
+
+        performRequest(
+                "/api/auth/login\r\nInjected",
+                "POST",
+                "203.0.113.45",
+                null
+        );
+
+        /*
+         * Den manipulerade sökvägen räknas inte som
+         * login-endpoint och använder därför API-bucketen.
+         * Två ytterligare anrop krävs för att nå gränsen.
+         */
+        performRequest(
+                "/api/auth/login\r\nInjected",
+                "POST",
+                "203.0.113.45",
+                null
+        );
+
+        MockHttpServletResponse blockedResponse =
+                performRequest(
+                        "/api/auth/login\r\nInjected",
+                        "POST",
+                        "203.0.113.45",
+                        null
+                );
+
+        assertEquals(
+                429,
+                blockedResponse.getStatus()
+        );
+
+        assertNotNull(
+                writtenErrorResponse
+        );
+
+        assertEquals(
+                "/api",
+                writtenErrorResponse.path()
+        );
     }
 
     @Test
@@ -325,7 +437,8 @@ class InMemoryRateLimitFilterTest {
         );
     }
 
-    private MockHttpServletResponse performRequest(
+    private MockHttpServletResponse
+    performRequest(
             String requestUri,
             String method,
             String remoteAddress,

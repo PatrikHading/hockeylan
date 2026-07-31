@@ -52,20 +52,22 @@ class AdminActiveLoanControllerTest {
                 "http://localhost:5173"
         );
 
-        mockMvc = MockMvcBuilders
-                .standaloneSetup(
-                        controller
-                )
-                .setControllerAdvice(
-                        new GlobalExceptionHandler()
-                )
-                .build();
+        mockMvc =
+                MockMvcBuilders
+                        .standaloneSetup(
+                                controller
+                        )
+                        .setControllerAdvice(
+                                new GlobalExceptionHandler()
+                        )
+                        .build();
     }
 
     @Test
     void historyShouldReturnPagedAdminLoanData()
             throws Exception {
-        Loan loan = activeLoan();
+        Loan loan =
+                activeLoan();
 
         when(
                 loanService.getLoanHistory(
@@ -243,7 +245,8 @@ class AdminActiveLoanControllerTest {
                 )
         ).thenThrow(
                 new IllegalArgumentException(
-                        "Page size must be between 1 and 100."
+                        "Page size must be "
+                                + "between 1 and 100."
                 )
         );
 
@@ -270,10 +273,26 @@ class AdminActiveLoanControllerTest {
                                 )
                 )
                 .andExpect(
+                        jsonPath("$.code")
+                                .value(
+                                        "INVALID_REQUEST"
+                                )
+                )
+                .andExpect(
                         jsonPath("$.message")
                                 .value(
-                                        "Request could not be processed."
+                                        "Begäran kunde inte behandlas."
                                 )
+                )
+                .andExpect(
+                        jsonPath("$.path")
+                                .value(
+                                        "/api/admin/loans"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.fieldErrors")
+                                .isEmpty()
                 );
     }
 
@@ -299,8 +318,31 @@ class AdminActiveLoanControllerTest {
                 .andExpect(
                         jsonPath("$.error")
                                 .value(
-                                        "Invalid Parameter"
+                                        "Bad Request"
                                 )
+                )
+                .andExpect(
+                        jsonPath("$.code")
+                                .value(
+                                        "INVALID_REQUEST"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.message")
+                                .value(
+                                        "En eller flera parametrar "
+                                                + "innehåller ogiltiga värden."
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.path")
+                                .value(
+                                        "/api/admin/loans"
+                                )
+                )
+                .andExpect(
+                        jsonPath("$.fieldErrors")
+                                .isEmpty()
                 );
     }
 
@@ -315,17 +357,18 @@ class AdminActiveLoanControllerTest {
         equipment.setId(1L);
         equipment.setAvailable(false);
 
-        Loan loan = new Loan(
-                equipment,
-                "Patrik Hading",
-                "patrik@example.com",
-                "+46701234567",
-                LocalDate.of(
-                        2026,
-                        8,
-                        31
-                )
-        );
+        Loan loan =
+                new Loan(
+                        equipment,
+                        "Patrik Hading",
+                        "patrik@example.com",
+                        "+46701234567",
+                        LocalDate.of(
+                                2026,
+                                8,
+                                31
+                        )
+                );
 
         loan.setId(10L);
 

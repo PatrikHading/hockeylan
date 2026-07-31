@@ -1,5 +1,6 @@
 package com.norops.hockeylan.security;
 
+import com.norops.hockeylan.exception.ApiErrorCode;
 import com.norops.hockeylan.exception.ApiErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -14,14 +15,15 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
 public class RestAccessDeniedHandler
         implements AccessDeniedHandler {
 
-    private static final int MAX_SAFE_PATH_LENGTH =
-            200;
+    private static final int
+            MAX_SAFE_PATH_LENGTH = 200;
 
     private final ObjectMapper objectMapper;
 
@@ -37,20 +39,25 @@ public class RestAccessDeniedHandler
                         HttpStatus
                                 .FORBIDDEN
                                 .value(),
-                        "Forbidden",
-                        "Access to this resource "
-                                + "is forbidden.",
-                        safePath(
-                                request
-                        )
+                        HttpStatus
+                                .FORBIDDEN
+                                .getReasonPhrase(),
+                        ApiErrorCode.ACCESS_DENIED,
+                        "Du saknar behörighet "
+                                + "för åtgärden.",
+                        safePath(request),
+                        Map.of()
                 );
 
         response.setStatus(
-                HttpStatus.FORBIDDEN.value()
+                HttpStatus
+                        .FORBIDDEN
+                        .value()
         );
 
         response.setContentType(
-                MediaType.APPLICATION_JSON_VALUE
+                MediaType
+                        .APPLICATION_JSON_VALUE
         );
 
         response.setCharacterEncoding(

@@ -1,12 +1,17 @@
 import {
     useEffect,
+    useRef,
     useState,
 } from "react";
-import api from "../api/api";
+import api, {
+    getErrorMessage,
+    hasErrorCode,
+} from "../api/api";
 import Alert from "../components/ui/Alert";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
+import FormField from "../components/ui/FormField";
 
 const INITIAL_FILTERS = {
     status: "ALL",
@@ -36,17 +41,31 @@ const EQUIPMENT_TYPES = [
     },
 ];
 
+const equipmentTypeLabels =
+    Object.fromEntries(
+        EQUIPMENT_TYPES.map(
+            (type) => [
+                type.value,
+                type.label,
+            ]
+        )
+    );
+
 function ActiveLoansPage() {
     const [pageData, setPageData] =
         useState(createEmptyPage());
 
     const [filters, setFilters] =
-        useState(INITIAL_FILTERS);
+        useState({
+            ...INITIAL_FILTERS,
+        });
 
     const [
         appliedFilters,
         setAppliedFilters,
-    ] = useState(INITIAL_FILTERS);
+    ] = useState({
+        ...INITIAL_FILTERS,
+    });
 
     const [page, setPage] =
         useState(0);
@@ -54,13 +73,20 @@ function ActiveLoansPage() {
     const [loading, setLoading] =
         useState(true);
 
+    const [loadAttempt, setLoadAttempt] =
+        useState(0);
+
     const [returning, setReturning] =
         useState(false);
 
-    const [
-        errorMessage,
-        setErrorMessage,
-    ] = useState("");
+    const [loadError, setLoadError] =
+        useState("");
+
+    const [filterError, setFilterError] =
+        useState("");
+
+    const [actionError, setActionError] =
+        useState("");
 
     const [
         successMessage,
@@ -72,80 +98,93 @@ function ActiveLoansPage() {
         setSelectedLoan,
     ] = useState(null);
 
+    const returnInProgressRef =
+        useRef(false);
+
+    const actionErrorRef =
+        useRef(null);
+
     useEffect(() => {
-        let active = true;
+        const controller =
+            new AbortController();
+
+        let activeRequest = true;
 
         async function fetchLoanHistory() {
-            try {
-                setLoading(true);
+            setLoading(true);
+            setLoadError("");
 
-                const params = {
-                    status:
-                    appliedFilters.status,
-                    page,
-                    size: 20,
-                };
-
-                Object.entries(
-                    appliedFilters
-                ).forEach(
-                    ([key, value]) => {
-                        if (
-                            key !== "status"
-                            && value
-                        ) {
-                            params[key] =
-                                value;
-                        }
-                    }
+            const params =
+                createRequestParameters(
+                    appliedFilters,
+                    page
                 );
 
+            try {
                 const response =
                     await api.get(
                         "/admin/loans",
-                        { params }
+                        {
+                            params,
+                            signal:
+                            controller.signal,
+                        }
                     );
 
-                if (active) {
+                if (activeRequest) {
                     setPageData(
-                        response.data
+                        normalizePageData(
+                            response.data
+                        )
                     );
-                    setErrorMessage("");
                 }
             } catch (error) {
-                if (!active) {
+                if (
+                    !activeRequest ||
+                    controller.signal.aborted
+                ) {
                     return;
                 }
 
                 if (
-                    error.response?.status
-                    === 403
+                    hasErrorCode(
+                        error,
+                        "AUTHENTICATION_REQUIRED"
+                    )
                 ) {
-                    setErrorMessage(
-                        "Du saknar behörighet att visa lånehistoriken."
-                    );
-                } else if (
-                    error.response?.status
-                    !== 401
-                ) {
-                    setErrorMessage(
-                        error.displayMessage
-                        || "Kunde inte hämta lånehistoriken."
-                    );
+                    return;
                 }
+
+                setLoadError(
+                    getErrorMessage(
+                        error,
+                        "Kunde inte hämta lånehistoriken. Försök igen."
+                    )
+                );
             } finally {
-                if (active) {
+                if (activeRequest) {
                     setLoading(false);
                 }
             }
         }
 
-        fetchLoanHistory();
+        void fetchLoanHistory();
 
         return () => {
-            active = false;
+            activeRequest = false;
+            controller.abort();
         };
-    }, [appliedFilters, page]);
+    }, [
+        appliedFilters,
+        loadAttempt,
+        page,
+    ]);
+
+    useEffect(() => {
+        if (actionError) {
+            actionErrorRef.current?.focus();
+        }
+    }, [actionError]);
 
     function updateFilter(event) {
         const { name, value } =
@@ -155,107 +194,162 @@ function ActiveLoansPage() {
             ...current,
             [name]: value,
         }));
+
+        if (
+            name === "from" ||
+            name === "to"
+        ) {
+            setFilterError("");
+        }
     }
 
     function applyFilters(event) {
         event.preventDefault();
 
         if (
-            filters.from
-            && filters.to
-            && filters.from
-            > filters.to
+            filters.from &&
+            filters.to &&
+            filters.from > filters.to
         ) {
-            setErrorMessage(
+            setFilterError(
                 "Från-datum får inte ligga efter till-datum."
             );
 
+            window.requestAnimationFrame(
+                () => {
+                    document
+                        .getElementById(
+                            "history-from"
+                        )
+                        ?.focus();
+                }
+            );
+
             return;
         }
 
-        setErrorMessage("");
+        setFilterError("");
+        setActionError("");
         setSuccessMessage("");
         setPage(0);
-        setAppliedFilters(filters);
+
+        setAppliedFilters(
+            normalizeFilters(filters)
+        );
     }
 
     function clearFilters() {
-        setFilters(INITIAL_FILTERS);
-        setAppliedFilters(
-            INITIAL_FILTERS
-        );
+        setFilters({
+            ...INITIAL_FILTERS,
+        });
+
+        setAppliedFilters({
+            ...INITIAL_FILTERS,
+        });
+
         setPage(0);
-        setErrorMessage("");
+        setFilterError("");
+        setActionError("");
         setSuccessMessage("");
     }
 
-    async function handleReturned() {
-        if (!selectedLoan) {
+    function openReturnDialog(loan) {
+        if (returning) {
             return;
         }
 
-        try {
-            setReturning(true);
-            setErrorMessage("");
-            setSuccessMessage("");
+        setActionError("");
+        setSuccessMessage("");
+        setSelectedLoan(loan);
+    }
 
+    async function handleReturned() {
+        if (
+            !selectedLoan ||
+            returnInProgressRef.current
+        ) {
+            return;
+        }
+
+        returnInProgressRef.current =
+            true;
+
+        setReturning(true);
+        setActionError("");
+        setSuccessMessage("");
+
+        const loanBeingReturned =
+            selectedLoan;
+
+        try {
             const response =
                 await api.put(
-                    `/admin/loans/${selectedLoan.id}/returned`,
+                    `/admin/loans/${encodeURIComponent(
+                        loanBeingReturned.id
+                    )}/returned`,
                     {}
                 );
 
-            setPageData((current) => ({
-                ...current,
-                content:
-                    current.content.map(
-                        (loan) =>
-                            loan.id
-                            === selectedLoan.id
-                                ? response.data
-                                : loan
-                    ),
-            }));
-
-            setSuccessMessage(
-                `${selectedLoan.equipment.serialNumber} är markerad som återlämnad.`
+            setPageData((current) =>
+                updatePageAfterReturn(
+                    current,
+                    response.data,
+                    appliedFilters.status
+                )
             );
 
             setSelectedLoan(null);
+
+            setSuccessMessage(
+                `${loanBeingReturned.equipment.serialNumber} är markerad som återlämnad.`
+            );
         } catch (error) {
+            setSelectedLoan(null);
+
+            setActionError(
+                getErrorMessage(
+                    error,
+                    "Kunde inte markera lånet som återlämnat. Försök igen."
+                )
+            );
+
             if (
-                error.response?.status
-                === 403
+                hasErrorCode(
+                    error,
+                    "LOAN_ALREADY_RETURNED"
+                )
             ) {
-                setErrorMessage(
-                    "Du saknar behörighet att registrera återlämningen."
-                );
-            } else if (
-                error.response?.status
-                !== 401
-            ) {
-                setErrorMessage(
-                    error.displayMessage
-                    || "Kunde inte markera lånet som återlämnat."
+                setLoadAttempt(
+                    (current) =>
+                        current + 1
                 );
             }
         } finally {
+            returnInProgressRef.current =
+                false;
+
             setReturning(false);
         }
     }
 
     return (
-        <div className="mobile-page safe-bottom space-y-6">
+        <main
+            className="mobile-page safe-bottom space-y-6"
+            aria-labelledby="loan-history-heading"
+        >
             <section className="mobile-card rounded-3xl bg-white p-5 shadow-sm sm:p-6">
                 <Badge variant="hockey">
                     Admin
                 </Badge>
 
-                <h1 className="mt-3">
+                <h1
+                    id="loan-history-heading"
+                    className="mt-3"
+                >
                     Lånehistorik
                 </h1>
 
-                <p className="mt-2 max-w-2xl">
+                <p className="mt-2 max-w-2xl text-slate-700">
                     Visa aktiva, försenade
                     och avslutade lån.
                     Personuppgifterna visas
@@ -264,13 +358,19 @@ function ActiveLoansPage() {
                 </p>
             </section>
 
-            {errorMessage && (
-                <Alert
-                    title="Något gick fel"
-                    variant="danger"
+            {actionError && (
+                <div
+                    ref={actionErrorRef}
+                    tabIndex={-1}
+                    className="rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-700 focus:ring-offset-2"
                 >
-                    {errorMessage}
-                </Alert>
+                    <Alert
+                        title="Åtgärden misslyckades"
+                        variant="danger"
+                    >
+                        {actionError}
+                    </Alert>
+                </div>
             )}
 
             {successMessage && (
@@ -284,37 +384,73 @@ function ActiveLoansPage() {
 
             <FilterForm
                 filters={filters}
+                filterError={
+                    filterError
+                }
+                disabled={returning}
                 onChange={updateFilter}
                 onSubmit={applyFilters}
                 onClear={clearFilters}
             />
 
-            <section className="mobile-card rounded-3xl bg-white p-5 shadow-sm sm:p-6">
-                {!loading && (
-                    <p
-                        className="mb-4 text-sm font-semibold text-slate-600"
-                        aria-live="polite"
-                    >
-                        {pageData.totalElements} lån
-                        hittades
-                    </p>
-                )}
+            <section
+                className="mobile-card rounded-3xl bg-white p-5 shadow-sm sm:p-6"
+                aria-busy={loading}
+            >
+                {!loading &&
+                    !loadError && (
+                        <p
+                            className="mb-4 text-sm font-semibold text-slate-700"
+                            role="status"
+                            aria-live="polite"
+                        >
+                            {
+                                pageData.totalElements
+                            }{" "}
+                            lån hittades
+                        </p>
+                    )}
 
                 {loading ? (
                     <LoadingState />
-                ) : pageData
-                    .content
+                ) : loadError ? (
+                    <LoadErrorState
+                        message={
+                            loadError
+                        }
+                        onRetry={() =>
+                            setLoadAttempt(
+                                (current) =>
+                                    current +
+                                    1
+                            )
+                        }
+                    />
+                ) : pageData.content
                     .length === 0 ? (
-                    <EmptyState />
+                    <EmptyState
+                        hasFilters={
+                            hasFilters(
+                                appliedFilters
+                            )
+                        }
+                    />
                 ) : (
                     <div className="grid gap-4">
                         {pageData.content.map(
                             (loan) => (
                                 <LoanCard
-                                    key={loan.id}
-                                    loan={loan}
+                                    key={
+                                        loan.id
+                                    }
+                                    loan={
+                                        loan
+                                    }
+                                    actionDisabled={
+                                        returning
+                                    }
                                     onReturn={
-                                        setSelectedLoan
+                                        openReturnDialog
                                     }
                                 />
                             )
@@ -322,14 +458,20 @@ function ActiveLoansPage() {
                     </div>
                 )}
 
-                {!loading
-                    && pageData.totalPages
-                    > 1 && (
+                {!loading &&
+                    !loadError &&
+                    pageData.totalPages >
+                    1 && (
                         <Pagination
                             pageData={
                                 pageData
                             }
-                            setPage={setPage}
+                            disabled={
+                                returning
+                            }
+                            setPage={
+                                setPage
+                            }
                         />
                     )}
             </section>
@@ -348,35 +490,69 @@ function ActiveLoansPage() {
                 cancelText="Avbryt"
                 loading={returning}
                 variant="secondary"
-                onConfirm={handleReturned}
+                onConfirm={
+                    handleReturned
+                }
                 onCancel={() =>
                     setSelectedLoan(null)
                 }
             />
-        </div>
+        </main>
     );
 }
 
 function FilterForm({
                         filters,
+                        filterError,
+                        disabled,
                         onChange,
                         onSubmit,
                         onClear,
                     }) {
     return (
-        <section className="mobile-card rounded-3xl bg-white p-5 shadow-sm sm:p-6">
+        <section
+            className="mobile-card rounded-3xl bg-white p-5 shadow-sm sm:p-6"
+            aria-labelledby="history-filter-heading"
+        >
+            <h2
+                id="history-filter-heading"
+                className="mb-4"
+            >
+                Filtrera lånehistorik
+            </h2>
+
+            {filterError && (
+                <div className="mb-4">
+                    <Alert
+                        title="Kontrollera datumen"
+                        variant="danger"
+                    >
+                        {filterError}
+                    </Alert>
+                </div>
+            )}
+
             <form
                 onSubmit={onSubmit}
                 className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+                noValidate
             >
-                <label className="text-sm font-bold text-slate-700">
-                    Status
-
+                <FormField
+                    id="history-status"
+                    label="Status"
+                >
                     <select
                         name="status"
-                        value={filters.status}
-                        onChange={onChange}
-                        className="mobile-input mt-2"
+                        value={
+                            filters.status
+                        }
+                        onChange={
+                            onChange
+                        }
+                        disabled={
+                            disabled
+                        }
+                        className="mobile-input"
                     >
                         <option value="ALL">
                             Alla lån
@@ -394,57 +570,93 @@ function FilterForm({
                             Återlämnade
                         </option>
                     </select>
-                </label>
+                </FormField>
 
-                <label className="text-sm font-bold text-slate-700">
-                    Från lånedatum
-
+                <FormField
+                    id="history-from"
+                    label="Från lånedatum"
+                    error={
+                        filterError ||
+                        undefined
+                    }
+                >
                     <input
                         name="from"
                         type="date"
-                        value={filters.from}
-                        onChange={onChange}
-                        className="mobile-input mt-2"
+                        value={
+                            filters.from
+                        }
+                        onChange={
+                            onChange
+                        }
+                        disabled={
+                            disabled
+                        }
+                        className="mobile-input"
                     />
-                </label>
+                </FormField>
 
-                <label className="text-sm font-bold text-slate-700">
-                    Till lånedatum
-
+                <FormField
+                    id="history-to"
+                    label="Till lånedatum"
+                    error={
+                        filterError ||
+                        undefined
+                    }
+                >
                     <input
                         name="to"
                         type="date"
                         value={filters.to}
-                        onChange={onChange}
-                        className="mobile-input mt-2"
+                        onChange={
+                            onChange
+                        }
+                        disabled={
+                            disabled
+                        }
+                        className="mobile-input"
                     />
-                </label>
+                </FormField>
 
-                <label className="text-sm font-bold text-slate-700">
-                    Serienummer
-
+                <FormField
+                    id="history-serial-number"
+                    label="Serienummer"
+                >
                     <input
                         name="serialNumber"
                         value={
                             filters.serialNumber
                         }
-                        onChange={onChange}
-                        maxLength={100}
-                        className="mobile-input mt-2"
+                        onChange={
+                            onChange
+                        }
+                        maxLength={50}
+                        autoCapitalize="characters"
+                        spellCheck="false"
+                        disabled={
+                            disabled
+                        }
+                        className="mobile-input"
                     />
-                </label>
+                </FormField>
 
-                <label className="text-sm font-bold text-slate-700">
-                    Utrustningstyp
-
+                <FormField
+                    id="history-equipment-type"
+                    label="Utrustningstyp"
+                >
                     <select
                         name="equipmentType"
                         value={
                             filters
                                 .equipmentType
                         }
-                        onChange={onChange}
-                        className="mobile-input mt-2"
+                        onChange={
+                            onChange
+                        }
+                        disabled={
+                            disabled
+                        }
+                        className="mobile-input"
                     >
                         <option value="">
                             Alla typer
@@ -460,34 +672,55 @@ function FilterForm({
                                         type.value
                                     }
                                 >
-                                    {type.label}
+                                    {
+                                        type.label
+                                    }
                                 </option>
                             )
                         )}
                     </select>
-                </label>
+                </FormField>
 
-                <label className="text-sm font-bold text-slate-700">
-                    Låntagare
-
+                <FormField
+                    id="history-borrower"
+                    label="Låntagare"
+                >
                     <input
                         name="borrower"
-                        value={filters.borrower}
-                        onChange={onChange}
+                        value={
+                            filters.borrower
+                        }
+                        onChange={
+                            onChange
+                        }
                         maxLength={100}
-                        className="mobile-input mt-2"
+                        autoComplete="off"
+                        disabled={
+                            disabled
+                        }
+                        className="mobile-input"
                     />
-                </label>
+                </FormField>
 
-                <div className="flex flex-col gap-2 md:col-span-2 lg:col-span-3 sm:flex-row">
-                    <Button type="submit">
+                <div className="flex flex-col gap-2 md:col-span-2 sm:flex-row lg:col-span-3">
+                    <Button
+                        type="submit"
+                        disabled={
+                            disabled
+                        }
+                    >
                         Använd filter
                     </Button>
 
                     <Button
                         type="button"
                         variant="outline"
-                        onClick={onClear}
+                        disabled={
+                            disabled
+                        }
+                        onClick={
+                            onClear
+                        }
                     >
                         Rensa filter
                     </Button>
@@ -499,6 +732,7 @@ function FilterForm({
 
 function LoanCard({
                       loan,
+                      actionDisabled,
                       onReturn,
                   }) {
     const status =
@@ -512,14 +746,23 @@ function LoanCard({
                     ? "border-red-300 bg-red-50"
                     : "border-slate-200 bg-slate-50",
             ].join(" ")}
+            aria-labelledby={
+                `loan-${loan.id}-heading`
+            }
         >
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <h2>
-                        {loan.borrowerName}
+                    <h2
+                        id={
+                            `loan-${loan.id}-heading`
+                        }
+                    >
+                        {
+                            loan.borrowerName
+                        }
                     </h2>
 
-                    <p className="mt-1 font-mono text-sm text-slate-600">
+                    <p className="mt-1 break-all font-mono text-sm text-slate-700">
                         {
                             loan.equipment
                                 .serialNumber
@@ -528,7 +771,9 @@ function LoanCard({
                 </div>
 
                 <Badge
-                    variant={status.variant}
+                    variant={
+                        status.variant
+                    }
                 >
                     {status.label}
                 </Badge>
@@ -540,17 +785,25 @@ function LoanCard({
                     value={
                         <div>
                             <a
-                                href={`mailto:${loan.email}`}
-                                className="block text-blue-800 underline"
+                                href={
+                                    `mailto:${loan.email}`
+                                }
+                                className="block break-all text-blue-800 underline focus:outline-none focus:ring-2 focus:ring-blue-950 focus:ring-offset-2"
                             >
-                                {loan.email}
+                                {
+                                    loan.email
+                                }
                             </a>
 
                             <a
-                                href={`tel:${loan.phoneNumber}`}
-                                className="block underline"
+                                href={
+                                    `tel:${loan.phoneNumber}`
+                                }
+                                className="block underline focus:outline-none focus:ring-2 focus:ring-blue-950 focus:ring-offset-2"
                             >
-                                {loan.phoneNumber}
+                                {
+                                    loan.phoneNumber
+                                }
                             </a>
                         </div>
                     }
@@ -560,10 +813,14 @@ function LoanCard({
                     label="Utrustning"
                     value={
                         <>
-                            {
-                                loan.equipment
-                                    .type
-                            }
+                            {equipmentTypeLabels[
+                                    loan
+                                        .equipment
+                                        .type
+                                    ] ||
+                                loan
+                                    .equipment
+                                    .type}
 
                             {loan.equipment
                                 .description
@@ -575,30 +832,26 @@ function LoanCard({
 
                 <LoanDetail
                     label="Lånedatum"
-                    value={
-                        formatDateTime(
-                            loan.loanDate
-                        )
-                    }
+                    value={formatDateTime(
+                        loan.loanDate
+                    )}
                 />
 
                 <LoanDetail
                     label="Förväntad återlämning"
-                    value={
-                        formatDate(
-                            loan.expectedReturnDate
-                        )
+                    value={formatDate(
+                        loan.expectedReturnDate
+                    )}
+                    danger={
+                        loan.overdue
                     }
-                    danger={loan.overdue}
                 />
 
                 <LoanDetail
                     label="Återlämnad"
-                    value={
-                        formatDateTime(
-                            loan.returnedAt
-                        )
-                    }
+                    value={formatDateTime(
+                        loan.returnedAt
+                    )}
                 />
             </dl>
 
@@ -608,6 +861,9 @@ function LoanCard({
                         type="button"
                         variant="secondary"
                         size="sm"
+                        disabled={
+                            actionDisabled
+                        }
                         onClick={() =>
                             onReturn(loan)
                         }
@@ -627,7 +883,7 @@ function LoanDetail({
                     }) {
     return (
         <div>
-            <dt className="font-bold text-slate-700">
+            <dt className="font-bold text-slate-800">
                 {label}
             </dt>
 
@@ -635,7 +891,7 @@ function LoanDetail({
                 className={
                     danger
                         ? "font-bold text-red-700"
-                        : ""
+                        : "text-slate-900"
                 }
             >
                 {value}
@@ -648,26 +904,63 @@ function LoadingState() {
     return (
         <div
             className="grid gap-3"
-            aria-label="Laddar lånehistorik"
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
         >
-            <div className="h-28 animate-pulse rounded-2xl bg-slate-100" />
-            <div className="h-28 animate-pulse rounded-2xl bg-slate-100" />
-            <div className="h-28 animate-pulse rounded-2xl bg-slate-100" />
+            <span className="sr-only">
+                Laddar lånehistorik...
+            </span>
+
+            {[1, 2, 3].map(
+                (item) => (
+                    <div
+                        key={item}
+                        className="h-28 animate-pulse rounded-2xl bg-slate-100"
+                        aria-hidden="true"
+                    />
+                )
+            )}
         </div>
     );
 }
 
-function EmptyState() {
+function LoadErrorState({
+                            message,
+                            onRetry,
+                        }) {
+    return (
+        <div className="space-y-4">
+            <Alert
+                title="Lånehistoriken kunde inte hämtas"
+                variant="danger"
+            >
+                {message}
+            </Alert>
+
+            <Button
+                type="button"
+                onClick={onRetry}
+            >
+                Försök igen
+            </Button>
+        </div>
+    );
+}
+
+function EmptyState({
+                        hasFilters: filtersApplied,
+                    }) {
     return (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
             <h2>
                 Inga lån hittades
             </h2>
 
-            <p className="mt-2 text-sm text-slate-600">
-                Ändra filtreringen eller
-                kontrollera att lån har
-                registrerats.
+            <p className="mt-2 text-sm text-slate-700">
+                {filtersApplied
+                    ? "Ändra filtreringen eller rensa filtren."
+                    : "Det finns ännu inga registrerade lån."}
             </p>
         </div>
     );
@@ -675,17 +968,21 @@ function EmptyState() {
 
 function Pagination({
                         pageData,
+                        disabled,
                         setPage,
                     }) {
     return (
         <nav
             aria-label="Sidindelning"
-            className="mt-6 flex items-center justify-between gap-4"
+            className="mt-6 flex flex-col items-center justify-between gap-4 sm:flex-row"
         >
             <Button
                 type="button"
                 variant="outline"
-                disabled={pageData.first}
+                disabled={
+                    disabled ||
+                    pageData.first
+                }
                 onClick={() =>
                     setPage((current) =>
                         Math.max(
@@ -698,15 +995,22 @@ function Pagination({
                 Föregående
             </Button>
 
-            <p className="text-sm font-bold text-slate-700">
-                Sida {pageData.page + 1} av{" "}
+            <p
+                className="text-sm font-bold text-slate-800"
+                aria-live="polite"
+            >
+                Sida{" "}
+                {pageData.page + 1} av{" "}
                 {pageData.totalPages}
             </p>
 
             <Button
                 type="button"
                 variant="outline"
-                disabled={pageData.last}
+                disabled={
+                    disabled ||
+                    pageData.last
+                }
                 onClick={() =>
                     setPage(
                         (current) =>
@@ -720,10 +1024,128 @@ function Pagination({
     );
 }
 
+function createRequestParameters(
+    appliedFilters,
+    page
+) {
+    const params = {
+        status:
+        appliedFilters.status,
+        page,
+        size: 20,
+    };
+
+    Object.entries(
+        appliedFilters
+    ).forEach(([key, value]) => {
+        if (
+            key === "status" ||
+            !value
+        ) {
+            return;
+        }
+
+        params[key] =
+            typeof value === "string"
+                ? value.trim()
+                : value;
+    });
+
+    return params;
+}
+
+function normalizeFilters(filters) {
+    return {
+        status: filters.status,
+        from: filters.from,
+        to: filters.to,
+        serialNumber:
+            filters.serialNumber.trim(),
+        equipmentType:
+        filters.equipmentType,
+        borrower:
+            filters.borrower.trim(),
+    };
+}
+
+function normalizePageData(value) {
+    if (
+        !value ||
+        !Array.isArray(
+            value.content
+        )
+    ) {
+        return createEmptyPage();
+    }
+
+    return {
+        ...createEmptyPage(),
+        ...value,
+        content: value.content,
+    };
+}
+
+function updatePageAfterReturn(
+    current,
+    returnedLoan,
+    appliedStatus
+) {
+    if (
+        appliedStatus === "ACTIVE" ||
+        appliedStatus === "OVERDUE"
+    ) {
+        const content =
+            current.content.filter(
+                (loan) =>
+                    loan.id !==
+                    returnedLoan.id
+            );
+
+        return {
+            ...current,
+            content,
+            totalElements:
+                Math.max(
+                    0,
+                    current.totalElements -
+                    1
+                ),
+        };
+    }
+
+    return {
+        ...current,
+        content:
+            current.content.map(
+                (loan) =>
+                    loan.id ===
+                    returnedLoan.id
+                        ? returnedLoan
+                        : loan
+            ),
+    };
+}
+
+function hasFilters(filters) {
+    return (
+        filters.status !== "ALL" ||
+        Boolean(filters.from) ||
+        Boolean(filters.to) ||
+        Boolean(
+            filters.serialNumber
+        ) ||
+        Boolean(
+            filters.equipmentType
+        ) ||
+        Boolean(filters.borrower)
+    );
+}
+
 function getLoanStatus(loan) {
     if (loan.returnedLate) {
         return {
-            label: "Återlämnat sent",
+            label:
+                "Återlämnat sent",
             variant: "warning",
         };
     }
@@ -760,7 +1182,9 @@ function formatDate(value) {
             timeZone: "UTC",
         }
     ).format(
-        new Date(`${value}T00:00:00Z`)
+        new Date(
+            `${value}T00:00:00Z`
+        )
     );
 }
 

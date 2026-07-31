@@ -1,16 +1,22 @@
 import {
     useEffect,
+    useRef,
     useState,
 } from "react";
 import {
     useNavigate,
     useParams,
 } from "react-router";
-import api from "../api/api";
+import api, {
+    getErrorMessage,
+    getFieldErrors,
+    hasErrorCode,
+} from "../api/api";
 import Alert from "../components/ui/Alert";
 import Badge from "../components/ui/Badge";
 import Button from "../components/ui/Button";
 import FormField from "../components/ui/FormField";
+import LinkButton from "../components/ui/LinkButton";
 
 const typeLabels = {
     COMPLETE_KIT:
@@ -41,6 +47,13 @@ const INITIAL_FORM_DATA = {
     expectedReturnDate: "",
 };
 
+const FIELD_ORDER = [
+    "borrowerName",
+    "email",
+    "phoneNumber",
+    "expectedReturnDate",
+];
+
 export default function LoanForm() {
     const { serialNumber } =
         useParams();
@@ -53,14 +66,33 @@ export default function LoanForm() {
     const [formData, setFormData] =
         useState(INITIAL_FORM_DATA);
 
+    const [
+        fieldErrors,
+        setFieldErrors,
+    ] = useState({});
+
     const [loading, setLoading] =
         useState(true);
 
     const [submitting, setSubmitting] =
         useState(false);
 
-    const [errorMessage, setErrorMessage] =
-        useState("");
+    const [loadAttempt, setLoadAttempt] =
+        useState(0);
+
+    const [loadError, setLoadError] =
+        useState(null);
+
+    const [
+        submitError,
+        setSubmitError,
+    ] = useState("");
+
+    const submissionInProgressRef =
+        useRef(false);
+
+    const submitErrorRef =
+        useRef(null);
 
     const minimumReturnDate =
         formatLocalDateInput(
@@ -68,16 +100,27 @@ export default function LoanForm() {
         );
 
     useEffect(() => {
+        const controller =
+            new AbortController();
+
         let activeRequest = true;
 
         async function fetchEquipment() {
-            try {
-                setLoading(true);
-                setErrorMessage("");
+            setLoading(true);
+            setLoadError(null);
+            setSubmitError("");
+            setEquipment(null);
 
+            try {
                 const response =
                     await api.get(
-                        `/loan/${serialNumber}`
+                        `/loan/${encodeURIComponent(
+                            serialNumber
+                        )}`,
+                        {
+                            signal:
+                            controller.signal,
+                        }
                     );
 
                 if (activeRequest) {
@@ -86,14 +129,27 @@ export default function LoanForm() {
                     );
                 }
             } catch (error) {
-                if (activeRequest) {
-                    setErrorMessage(
-                        error.response
-                            ?.data
-                            ?.message
-                        || error.displayMessage
-                        || "Kunde inte hämta utrustning."
-                    );
+                if (
+                    activeRequest &&
+                    !controller.signal.aborted
+                ) {
+                    setLoadError({
+                        unknownEquipment:
+                            hasErrorCode(
+                                error,
+                                "EQUIPMENT_NOT_FOUND"
+                            ) ||
+                            hasErrorCode(
+                                error,
+                                "RESOURCE_NOT_FOUND"
+                            ),
+
+                        message:
+                            getErrorMessage(
+                                error,
+                                "Utrustningen kunde inte hämtas. Försök igen."
+                            ),
+                    });
                 }
             } finally {
                 if (activeRequest) {
@@ -102,12 +158,22 @@ export default function LoanForm() {
             }
         }
 
-        fetchEquipment();
+        void fetchEquipment();
 
         return () => {
             activeRequest = false;
+            controller.abort();
         };
-    }, [serialNumber]);
+    }, [
+        loadAttempt,
+        serialNumber,
+    ]);
+
+    useEffect(() => {
+        if (submitError) {
+            submitErrorRef.current?.focus();
+        }
+    }, [submitError]);
 
     function handleChange(event) {
         const { name, value } =
@@ -117,13 +183,136 @@ export default function LoanForm() {
             ...current,
             [name]: value,
         }));
+
+        setFieldErrors((current) => {
+            if (!current[name]) {
+                return current;
+            }
+
+            const nextErrors = {
+                ...current,
+            };
+
+            delete nextErrors[name];
+
+            return nextErrors;
+        });
+    }
+
+    function focusFirstInvalidField(
+        errors
+    ) {
+        const firstInvalidField =
+            FIELD_ORDER.find(
+                (fieldName) =>
+                    Boolean(
+                        errors[fieldName]
+                    )
+            );
+
+        if (!firstInvalidField) {
+            return;
+        }
+
+        window.requestAnimationFrame(
+            () => {
+                document
+                    .getElementById(
+                        firstInvalidField
+                    )
+                    ?.focus();
+            }
+        );
+    }
+
+    function validateForm() {
+        const errors = {};
+
+        const normalizedName =
+            formData.borrowerName.trim();
+
+        const normalizedEmail =
+            formData.email.trim();
+
+        const normalizedPhone =
+            formData.phoneNumber.trim();
+
+        if (!normalizedName) {
+            errors.borrowerName =
+                "Låntagarens namn måste anges.";
+        } else if (
+            normalizedName.length < 2
+        ) {
+            errors.borrowerName =
+                "Låntagarens namn måste innehålla minst 2 tecken.";
+        } else if (
+            normalizedName.length > 100
+        ) {
+            errors.borrowerName =
+                "Låntagarens namn får innehålla högst 100 tecken.";
+        }
+
+        if (!normalizedEmail) {
+            errors.email =
+                "Låntagarens e-postadress måste anges.";
+        } else if (
+            !isValidEmail(
+                normalizedEmail
+            )
+        ) {
+            errors.email =
+                "Ange en giltig e-postadress.";
+        } else if (
+            normalizedEmail.length > 150
+        ) {
+            errors.email =
+                "E-postadressen får innehålla högst 150 tecken.";
+        }
+
+        if (!normalizedPhone) {
+            errors.phoneNumber =
+                "Låntagarens telefonnummer måste anges.";
+        } else if (
+            normalizedPhone.length < 6
+        ) {
+            errors.phoneNumber =
+                "Telefonnumret måste innehålla minst 6 tecken.";
+        } else if (
+            normalizedPhone.length > 30
+        ) {
+            errors.phoneNumber =
+                "Telefonnumret får innehålla högst 30 tecken.";
+        }
+
+        if (
+            !formData.expectedReturnDate
+        ) {
+            errors.expectedReturnDate =
+                "Förväntat återlämningsdatum måste anges.";
+        } else if (
+            formData.expectedReturnDate <
+            minimumReturnDate
+        ) {
+            errors.expectedReturnDate =
+                "Förväntat återlämningsdatum får inte ligga före dagens datum.";
+        }
+
+        return errors;
     }
 
     async function handleSubmit(event) {
         event.preventDefault();
 
+        if (
+            submissionInProgressRef.current
+        ) {
+            return;
+        }
+
+        setSubmitError("");
+
         if (!equipment?.active) {
-            setErrorMessage(
+            setSubmitError(
                 "Utrustningen är inaktiverad och kan inte lånas."
             );
 
@@ -131,50 +320,59 @@ export default function LoanForm() {
         }
 
         if (!equipment?.available) {
-            setErrorMessage(
+            setSubmitError(
                 "Utrustningen är redan utlånad."
             );
 
             return;
         }
 
+        const validationErrors =
+            validateForm();
+
         if (
-            !formData.expectedReturnDate
+            Object.keys(
+                validationErrors
+            ).length > 0
         ) {
-            setErrorMessage(
-                "Förväntat återlämningsdatum måste anges."
+            setFieldErrors(
+                validationErrors
+            );
+
+            focusFirstInvalidField(
+                validationErrors
             );
 
             return;
         }
 
-        if (
-            formData.expectedReturnDate
-            < minimumReturnDate
-        ) {
-            setErrorMessage(
-                "Förväntat återlämningsdatum får inte ligga före dagens datum."
-            );
+        submissionInProgressRef.current =
+            true;
 
-            return;
-        }
+        setSubmitting(true);
+        setFieldErrors({});
 
         try {
-            setSubmitting(true);
-            setErrorMessage("");
-
             const response =
                 await api.post(
-                    `/admin/loans/${serialNumber}`,
+                    `/admin/loans/${encodeURIComponent(
+                        serialNumber
+                    )}`,
                     {
                         borrowerName:
-                        formData
-                            .borrowerName,
+                            formData
+                                .borrowerName
+                                .trim(),
+
                         email:
-                        formData.email,
+                            formData.email
+                                .trim(),
+
                         phoneNumber:
-                        formData
-                            .phoneNumber,
+                            formData
+                                .phoneNumber
+                                .trim(),
+
                         expectedReturnDate:
                         formData
                             .expectedReturnDate,
@@ -191,20 +389,25 @@ export default function LoanForm() {
                     state: {
                         loanId:
                         registeredLoan.id,
+
                         equipmentType:
                         registeredLoan
                             .equipment
                             .type,
+
                         serialNumber:
                         registeredLoan
                             .equipment
                             .serialNumber,
+
                         borrowerName:
                         registeredLoan
                             .borrowerName,
+
                         loanDate:
                         registeredLoan
                             .loanDate,
+
                         expectedReturnDate:
                         registeredLoan
                             .expectedReturnDate,
@@ -212,61 +415,197 @@ export default function LoanForm() {
                 }
             );
         } catch (error) {
-            setErrorMessage(
-                error.response
-                    ?.data
-                    ?.message
-                || error.displayMessage
-                || "Lånet kunde inte registreras."
-            );
+            const apiFieldErrors =
+                getFieldErrors(error);
+
+            if (
+                apiFieldErrors &&
+                Object.keys(
+                    apiFieldErrors
+                ).length > 0
+            ) {
+                setFieldErrors(
+                    apiFieldErrors
+                );
+
+                focusFirstInvalidField(
+                    apiFieldErrors
+                );
+            }
+
+            if (
+                hasErrorCode(
+                    error,
+                    "EQUIPMENT_ALREADY_LOANED"
+                ) ||
+                hasErrorCode(
+                    error,
+                    "EQUIPMENT_NOT_AVAILABLE"
+                )
+            ) {
+                setEquipment(
+                    (current) =>
+                        current
+                            ? {
+                                ...current,
+                                available:
+                                    false,
+                            }
+                            : current
+                );
+            }
+
+            if (
+                hasErrorCode(
+                    error,
+                    "EQUIPMENT_INACTIVE"
+                )
+            ) {
+                setEquipment(
+                    (current) =>
+                        current
+                            ? {
+                                ...current,
+                                active:
+                                    false,
+                            }
+                            : current
+                );
+            }
+
+            if (
+                !apiFieldErrors ||
+                Object.keys(
+                    apiFieldErrors
+                ).length === 0
+            ) {
+                setSubmitError(
+                    getErrorMessage(
+                        error,
+                        "Lånet kunde inte registreras. Försök igen."
+                    )
+                );
+            }
         } finally {
+            submissionInProgressRef.current =
+                false;
+
             setSubmitting(false);
         }
     }
 
     if (loading) {
         return (
-            <div
+            <main
                 className="mobile-page flex items-center justify-center"
-                aria-label="Hämtar utrustning"
+                role="status"
+                aria-live="polite"
+                aria-busy="true"
             >
-                <p>
-                    Hämtar utrustning...
-                </p>
-            </div>
+                <div className="rounded-2xl bg-white p-6 text-center shadow-sm">
+                    <div
+                        className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-950"
+                        aria-hidden="true"
+                    />
+
+                    <p className="font-medium text-slate-700">
+                        Hämtar utrustning...
+                    </p>
+                </div>
+            </main>
         );
     }
 
-    if (!equipment) {
+    if (loadError || !equipment) {
         return (
-            <div className="mobile-page safe-bottom">
-                <Alert
-                    title="Utrustningen kunde inte visas"
-                    variant="danger"
-                >
-                    {errorMessage
-                        || "Utrustningen kunde inte hittas."}
-                </Alert>
-            </div>
+            <main
+                className="mobile-page safe-bottom"
+                aria-labelledby="equipment-load-error-heading"
+            >
+                <div className="mx-auto max-w-xl space-y-5">
+                    <Alert
+                        title={
+                            loadError
+                                ?.unknownEquipment
+                                ? "Ogiltig eller okänd QR-kod"
+                                : "Utrustningen kunde inte hämtas"
+                        }
+                        variant="danger"
+                    >
+                        {loadError?.message ||
+                            "Utrustningen kunde inte hittas."}
+                    </Alert>
+
+                    <section className="mobile-card rounded-3xl bg-white p-5 shadow-sm sm:p-6">
+                        <h1
+                            id="equipment-load-error-heading"
+                            className="text-xl font-black text-slate-900"
+                        >
+                            Hur vill du fortsätta?
+                        </h1>
+
+                        <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                            {!loadError
+                                ?.unknownEquipment && (
+                                <Button
+                                    type="button"
+                                    onClick={() =>
+                                        setLoadAttempt(
+                                            (current) =>
+                                                current +
+                                                1
+                                        )
+                                    }
+                                    fullWidth
+                                >
+                                    Försök igen
+                                </Button>
+                            )}
+
+                            <LinkButton
+                                to="/scan"
+                                variant="outline"
+                                fullWidth
+                            >
+                                Skanna en annan QR-kod
+                            </LinkButton>
+
+                            <LinkButton
+                                to="/admin"
+                                variant="ghost"
+                                fullWidth
+                            >
+                                Till adminvyn
+                            </LinkButton>
+                        </div>
+                    </section>
+                </div>
+            </main>
         );
     }
 
     const canBeLoaned =
-        equipment.active
-        && equipment.available;
+        equipment.active &&
+        equipment.available;
 
     return (
-        <div className="mobile-page safe-bottom space-y-6">
+        <main
+            className="mobile-page safe-bottom space-y-6"
+            aria-labelledby="loan-form-heading"
+        >
             <section className="mobile-card rounded-3xl bg-white p-5 shadow-sm sm:p-6">
                 <Badge variant="hockey">
                     Admin
                 </Badge>
 
-                <h1 className="mt-3">
+                <h1
+                    id="loan-form-heading"
+                    className="mt-3"
+                >
                     Registrera lån
                 </h1>
 
-                <p className="mt-2 max-w-2xl">
+                <p className="mt-2 max-w-2xl text-slate-700">
                     Registreringen får endast
                     genomföras av en utsedd
                     klubbadministratör.
@@ -277,12 +616,31 @@ export default function LoanForm() {
                 equipment={equipment}
             />
 
-            {errorMessage && (
+            {submitError && (
+                <div
+                    ref={submitErrorRef}
+                    tabIndex={-1}
+                    className="rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-700 focus:ring-offset-2"
+                >
+                    <Alert
+                        title="Lånet kunde inte registreras"
+                        variant="danger"
+                    >
+                        {submitError}
+                    </Alert>
+                </div>
+            )}
+
+            {Object.keys(
+                fieldErrors
+            ).length > 0 && (
                 <Alert
-                    title="Lånet kunde inte registreras"
+                    title="Kontrollera formuläret"
                     variant="danger"
                 >
-                    {errorMessage}
+                    Ett eller flera fält behöver
+                    rättas innan lånet kan
+                    registreras.
                 </Alert>
             )}
 
@@ -294,14 +652,19 @@ export default function LoanForm() {
                 <form
                     onSubmit={handleSubmit}
                     className="mt-6 space-y-5"
+                    noValidate
+                    aria-busy={submitting}
                 >
                     <FormField
                         id="borrowerName"
                         label="Låntagarens namn"
                         required
+                        error={
+                            fieldErrors
+                                .borrowerName
+                        }
                     >
                         <input
-                            id="borrowerName"
                             name="borrowerName"
                             type="text"
                             value={
@@ -313,10 +676,9 @@ export default function LoanForm() {
                             }
                             minLength={2}
                             maxLength={100}
-                            required
                             disabled={
-                                !canBeLoaned
-                                || submitting
+                                !canBeLoaned ||
+                                submitting
                             }
                             autoComplete="name"
                             className="mobile-input"
@@ -327,9 +689,11 @@ export default function LoanForm() {
                         id="email"
                         label="Låntagarens e-post"
                         required
+                        error={
+                            fieldErrors.email
+                        }
                     >
                         <input
-                            id="email"
                             name="email"
                             type="email"
                             value={
@@ -339,12 +703,12 @@ export default function LoanForm() {
                                 handleChange
                             }
                             maxLength={150}
-                            required
                             disabled={
-                                !canBeLoaned
-                                || submitting
+                                !canBeLoaned ||
+                                submitting
                             }
                             autoComplete="email"
+                            inputMode="email"
                             className="mobile-input"
                         />
                     </FormField>
@@ -353,9 +717,12 @@ export default function LoanForm() {
                         id="phoneNumber"
                         label="Låntagarens telefonnummer"
                         required
+                        error={
+                            fieldErrors
+                                .phoneNumber
+                        }
                     >
                         <input
-                            id="phoneNumber"
                             name="phoneNumber"
                             type="tel"
                             value={
@@ -367,12 +734,12 @@ export default function LoanForm() {
                             }
                             minLength={6}
                             maxLength={30}
-                            required
                             disabled={
-                                !canBeLoaned
-                                || submitting
+                                !canBeLoaned ||
+                                submitting
                             }
                             autoComplete="tel"
+                            inputMode="tel"
                             className="mobile-input"
                         />
                     </FormField>
@@ -381,10 +748,13 @@ export default function LoanForm() {
                         id="expectedReturnDate"
                         label="Förväntat återlämningsdatum"
                         required
+                        error={
+                            fieldErrors
+                                .expectedReturnDate
+                        }
                         helperText="Välj det datum som klubben och låntagaren har kommit överens om. Det finns ingen maximal lånetid."
                     >
                         <input
-                            id="expectedReturnDate"
                             name="expectedReturnDate"
                             type="date"
                             value={
@@ -397,10 +767,9 @@ export default function LoanForm() {
                             min={
                                 minimumReturnDate
                             }
-                            required
                             disabled={
-                                !canBeLoaned
-                                || submitting
+                                !canBeLoaned ||
+                                submitting
                             }
                             className="mobile-input"
                         />
@@ -411,18 +780,20 @@ export default function LoanForm() {
                         size="lg"
                         fullWidth
                         disabled={
-                            submitting
-                            || !canBeLoaned
+                            !canBeLoaned
                         }
+                        loading={
+                            submitting
+                        }
+                        loadingText="Registrerar lån..."
                     >
                         {getSubmitText(
-                            equipment,
-                            submitting
+                            equipment
                         )}
                     </Button>
                 </form>
             </section>
-        </div>
+        </main>
     );
 }
 
@@ -498,22 +869,22 @@ function EquipmentDetails({
             value:
                 conditionLabels[
                     equipment.condition
-                    ]
-                || equipment.condition,
+                    ] ||
+                equipment.condition,
         },
         {
             label: "Ålderskategori",
             value:
                 ageCategoryLabels[
                     equipment.ageCategory
-                    ]
-                || equipment
-                    .ageCategory,
+                    ] ||
+                equipment.ageCategory,
         },
         {
             label: "Förvaringsplats",
             value:
-            equipment.storageLocation,
+            equipment
+                .storageLocation,
         },
     ].filter(
         (row) => row.value
@@ -521,9 +892,7 @@ function EquipmentDetails({
 
     return (
         <div>
-            <h2>
-                Utrustning
-            </h2>
+            <h2>Utrustning</h2>
 
             <dl className="mt-4 grid gap-3 sm:grid-cols-2">
                 {rows.map((row) => (
@@ -531,11 +900,11 @@ function EquipmentDetails({
                         key={row.label}
                         className="rounded-2xl bg-slate-50 p-3"
                     >
-                        <dt className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                        <dt className="text-xs font-bold uppercase tracking-wide text-slate-600">
                             {row.label}
                         </dt>
 
-                        <dd className="mt-1 font-semibold text-slate-900">
+                        <dd className="mt-1 break-words font-semibold text-slate-900">
                             {row.value}
                         </dd>
                     </div>
@@ -544,12 +913,14 @@ function EquipmentDetails({
 
             {equipment.description && (
                 <div className="mt-4 rounded-2xl bg-slate-50 p-3">
-                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-600">
                         Beskrivning
                     </p>
 
-                    <p className="mt-1 text-slate-800">
-                        {equipment.description}
+                    <p className="mt-1 break-words text-slate-800">
+                        {
+                            equipment.description
+                        }
                     </p>
                 </div>
             )}
@@ -558,8 +929,7 @@ function EquipmentDetails({
 }
 
 function getSubmitText(
-    equipment,
-    submitting
+    equipment
 ) {
     if (!equipment.active) {
         return "Utrustningen är inaktiverad";
@@ -569,11 +939,13 @@ function getSubmitText(
         return "Utrustningen är redan utlånad";
     }
 
-    if (submitting) {
-        return "Registrerar lån...";
-    }
-
     return "Registrera lån";
+}
+
+function isValidEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+        value
+    );
 }
 
 function formatLocalDateInput(date) {

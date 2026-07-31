@@ -1,5 +1,6 @@
 package com.norops.hockeylan.security;
 
+import com.norops.hockeylan.exception.ApiErrorCode;
 import com.norops.hockeylan.exception.ApiErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -14,14 +15,15 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
 public class RestAuthenticationEntryPoint
         implements AuthenticationEntryPoint {
 
-    private static final int MAX_SAFE_PATH_LENGTH =
-            200;
+    private static final int
+            MAX_SAFE_PATH_LENGTH = 200;
 
     private final ObjectMapper objectMapper;
 
@@ -37,20 +39,26 @@ public class RestAuthenticationEntryPoint
                         HttpStatus
                                 .UNAUTHORIZED
                                 .value(),
-                        "Unauthorized",
-                        "Administrator authentication "
-                                + "is required.",
-                        safePath(
-                                request
-                        )
+                        HttpStatus
+                                .UNAUTHORIZED
+                                .getReasonPhrase(),
+                        ApiErrorCode
+                                .AUTHENTICATION_REQUIRED,
+                        "Du behöver logga in "
+                                + "som administratör.",
+                        safePath(request),
+                        Map.of()
                 );
 
         response.setStatus(
-                HttpStatus.UNAUTHORIZED.value()
+                HttpStatus
+                        .UNAUTHORIZED
+                        .value()
         );
 
         response.setContentType(
-                MediaType.APPLICATION_JSON_VALUE
+                MediaType
+                        .APPLICATION_JSON_VALUE
         );
 
         response.setCharacterEncoding(
