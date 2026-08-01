@@ -17,6 +17,7 @@ services:
       RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
       ADMIN_SESSION_TIMEOUT: ${ADMIN_SESSION_TIMEOUT:-30m}
       MAX_JSON_PAYLOAD_BYTES: ${MAX_JSON_PAYLOAD_BYTES:-65536}
+      JAVA_TOOL_OPTIONS: -Duser.timezone=${APP_TIME_ZONE:-Europe/Stockholm}
     restart: always
 
   hockeylan-frontend:
