@@ -1,0 +1,35 @@
+services:
+  hockeylan-postgres:
+    ports: !reset []
+    volumes: !override
+      - type: bind
+        source: /mnt/storage/hockeylan/postgres
+        target: /var/lib/postgresql/data
+        bind:
+          create_host_path: false
+    networks:
+      - hockeylan-internal
+    restart: unless-stopped
+
+  hockeylan-backend:
+    ports: !reset []
+    networks:
+      - hockeylan-internal
+    restart: unless-stopped
+
+  hockeylan-frontend:
+    ports: !reset []
+    networks:
+      - hockeylan-internal
+      - homelab_net
+    restart: unless-stopped
+
+networks:
+  hockeylan-internal:
+    name: hockeylan-internal
+    driver: bridge
+    internal: true
+
+  homelab_net:
+    name: homelab_net
+    external: true

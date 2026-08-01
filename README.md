@@ -155,6 +155,7 @@ Dependencies without an explicit version in `pom.xml` are version-managed by the
 ├── .env.prod.example
 ├── docker-compose.yml
 ├── docker-compose.prod.yml
+├── docker-compose.server.yml
 ├── Dockerfile
 ├── pom.xml
 ├── mvnw
@@ -221,6 +222,7 @@ Replace the example database password before starting the application.
 | `CORS_ALLOWED_ORIGINS` | No locally; required by production Compose | `http://localhost:5173` | Comma-separated browser origins allowed to make credentialed CORS requests. Wildcards must not be used. |
 | `QR_BASE_URL` | No locally; required by production Compose | `http://localhost:5173` | Public frontend base URL embedded in generated QR links. |
 | `VITE_API_BASE_URL` | No | `/api` | API base URL embedded in the frontend build. |
+| `APP_TIME_ZONE` | No | `Europe/Stockholm` | JVM and application time zone supplied through `JAVA_TOOL_OPTIONS` in the production override. |
 | `ADMIN_SESSION_TIMEOUT` | No | `30m` | Administrator HTTP-session lifetime. |
 | `MAX_JSON_PAYLOAD_BYTES` | No | `65536` | Maximum accepted JSON request size. |
 
@@ -369,30 +371,153 @@ docker compose down -v
 
 The `-v` command deletes the local database data. Use it only when a complete reset is intended.
 
-## Production Compose override
+## Production deployment on the homelab server
 
-The repository includes `docker-compose.prod.yml`, which extends the base Compose configuration.
+The target host is an Ubuntu Server machine named `homelab`. The repository is deployed under:
 
-Create a protected production environment file from `.env.prod.example`, then run:
+```text
+/home/hading/homelab/stacks/hockeylan
+```
+
+Persistent PostgreSQL data and database backups are stored outside the repository under:
+
+```text
+/mnt/storage/hockeylan/postgres
+/mnt/storage/hockeylan/backups
+```
+
+The production deployment uses all three Compose files in this order:
 
 ```bash
 docker compose \
   --env-file .env.prod \
   -f docker-compose.yml \
   -f docker-compose.prod.yml \
+  -f docker-compose.server.yml \
   up -d --build
 ```
 
-The production override:
+Always use the same file order for `config`, `build`, `up`, `ps`, `logs`, `exec`, `run` and `down` commands. Later files intentionally override earlier files.
+
+Validate the merged configuration before starting or changing the stack:
+
+```bash
+docker compose \
+  --env-file .env.prod \
+  -f docker-compose.yml \
+  -f docker-compose.prod.yml \
+  -f docker-compose.server.yml \
+  config --quiet
+```
+
+The production configuration:
 
 - Activates the `prod` Spring profile.
-- Removes direct host exposure for PostgreSQL.
-- Removes direct host exposure for the backend.
-- Binds the frontend to `127.0.0.1:${FRONTEND_PORT:-5173}`.
-- Requires explicit database credentials, CORS origins and QR base URL.
-- Enables secure session and CSRF cookies through the production Spring profile.
+- Requires explicit PostgreSQL credentials, CORS origins and the public QR base URL.
+- Uses `APP_TIME_ZONE=Europe/Stockholm` through `JAVA_TOOL_OPTIONS`.
+- Publishes no host ports for PostgreSQL, the backend or the frontend.
+- Uses a dedicated PostgreSQL 17.10 container; it does not reuse other PostgreSQL containers on the host.
+- Replaces the named development database volume with `/mnt/storage/hockeylan/postgres`.
+- Requires the PostgreSQL host directory to exist because `create_host_path` is disabled.
+- Keeps the backend filesystem read-only and supplies `/tmp` through a restricted `tmpfs` mount.
+- Drops all Linux capabilities from the backend and enables `no-new-privileges`.
+- Uses `restart: unless-stopped` for all three services after the server override is applied.
 
-A host-level TLS reverse proxy must forward the public HTTPS site to the frontend port. The application must not be published directly over plain HTTP when the `prod` profile is active.
+### Docker networks and Nginx Proxy Manager
+
+The merged server configuration uses two Docker networks:
+
+| Network | Type | Connected services | Purpose |
+|---|---|---|---|
+| `hockeylan-internal` | Internal bridge (`internal: true`) | PostgreSQL, backend and frontend | Private communication inside the Hockeylån stack. |
+| `homelab_net` | Existing external bridge | Frontend and Nginx Proxy Manager | Allows the host reverse proxy to reach the frontend. |
+
+PostgreSQL and the backend must not join `homelab_net`. Only `hockeylan-frontend` is connected to both networks.
+
+Nginx Proxy Manager must forward the public host to:
+
+```text
+hockeylan-frontend:80
+```
+
+The public application address is:
+
+```text
+https://bkflagg.norops.se
+```
+
+Nginx Proxy Manager terminates TLS. The frontend Nginx container serves the React application and forwards `/api` to `hockeylan-backend:8080` across `hockeylan-internal`.
+
+Production values must include:
+
+```dotenv
+CORS_ALLOWED_ORIGINS=https://bkflagg.norops.se
+QR_BASE_URL=https://bkflagg.norops.se
+VITE_API_BASE_URL=/api
+APP_TIME_ZONE=Europe/Stockholm
+```
+
+Keep the real `.env.prod` protected and uncommitted. Never display or commit its database or administrator credentials.
+
+### PostgreSQL bind mount
+
+The PostgreSQL container stores its data at `/var/lib/postgresql/data`, backed by this host path:
+
+```text
+/mnt/storage/hockeylan/postgres
+```
+
+The directory must exist and have an owner and permissions compatible with the PostgreSQL container before the stack starts. Do not create or change those permissions without first confirming the effective PostgreSQL container user and the intended host ownership.
+
+The backup directory is deliberately not mounted inside the database container. Backup streams are written from `docker compose exec` directly to the protected host directory.
+
+### Database backup
+
+Create the backup directory before using this procedure and restrict access to authorised operators. From the deployed repository directory, create a custom-format backup without printing credentials:
+
+```bash
+backup_timestamp="$(date +%Y%m%d_%H%M%S)"
+
+docker compose \
+  --env-file .env.prod \
+  -f docker-compose.yml \
+  -f docker-compose.prod.yml \
+  -f docker-compose.server.yml \
+  exec -T hockeylan-postgres \
+  sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' \
+  > "/mnt/storage/hockeylan/backups/hockeylan_${backup_timestamp}.dump"
+```
+
+Verify that the resulting file exists, is non-empty and is recognised as a PostgreSQL custom-format archive:
+
+```bash
+test -s "/mnt/storage/hockeylan/backups/hockeylan_${backup_timestamp}.dump"
+
+docker compose \
+  --env-file .env.prod \
+  -f docker-compose.yml \
+  -f docker-compose.prod.yml \
+  -f docker-compose.server.yml \
+  exec -T hockeylan-postgres \
+  pg_restore --list \
+  < "/mnt/storage/hockeylan/backups/hockeylan_${backup_timestamp}.dump" \
+  > /dev/null
+```
+
+Protect backup files as production data because they contain administrator records and borrower personal information. Copy backups to a separate failure domain according to the operational retention policy.
+
+### Database restore
+
+A restore overwrites or recreates database state and must not be run against production merely as a routine check. Test each backup in an isolated temporary PostgreSQL instance first. Before any production restore:
+
+1. Confirm the exact backup file and checksum.
+2. Take a fresh backup of the current database when possible.
+3. Stop application writes.
+4. Document the rollback decision and responsible operator.
+5. Restore into an isolated database or temporary container and verify Flyway history, table counts and representative records.
+6. Only replace production data during an approved recovery operation.
+
+Do not use `docker compose down -v` as a restore step. The server database uses a host bind mount, and destructive operations against `/mnt/storage/hockeylan/postgres` require a separately reviewed recovery procedure.
 
 ## Start without Docker
 
@@ -910,17 +1035,19 @@ The workflow validates source and tests but does not deploy the application.
 
 Before production deployment:
 
-- Place a TLS-terminating reverse proxy in front of the frontend.
+- Keep Nginx Proxy Manager connected to `homelab_net` and forward only to `hockeylan-frontend:80`.
 - Redirect all HTTP traffic to HTTPS.
 - Use the `prod` Spring profile.
 - Use long, unique database and administrator passwords.
 - Store secrets in protected server-side configuration, not Git.
-- Set `CORS_ALLOWED_ORIGINS` to exact HTTPS origins.
-- Set `QR_BASE_URL` to the real public HTTPS address.
+- Set `CORS_ALLOWED_ORIGINS=https://bkflagg.norops.se`.
+- Set `QR_BASE_URL=https://bkflagg.norops.se`.
+- Set `APP_TIME_ZONE=Europe/Stockholm`.
 - Keep `VITE_API_BASE_URL=/api` for the same-origin Nginx proxy.
 - Keep PostgreSQL and the backend unexposed to the public network.
-- Restrict the frontend host port to the local reverse proxy.
-- Back up the PostgreSQL volume and test restoration.
+- Publish no Hockeylån host ports in the server-specific Compose configuration.
+- Keep PostgreSQL data on `/mnt/storage/hockeylan/postgres` and backups under `/mnt/storage/hockeylan/backups`.
+- Back up PostgreSQL and test restoration in an isolated database.
 - Monitor container health, logs, disk usage and database capacity.
 - Establish a migration and rollback procedure.
 - Review rate limits for expected traffic.
