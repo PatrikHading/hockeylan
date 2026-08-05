@@ -15,7 +15,7 @@ permissions:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   backend:
@@ -85,3 +85,24 @@ jobs:
 
       - name: Build frontend
         run: npm run build
+
+  deploy:
+    name: Deploy production
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs:
+      - backend
+      - frontend
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - hockeylan-production
+    timeout-minutes: 40
+    permissions: {}
+
+    steps:
+      - name: Deploy exact commit to production
+        run: |
+          sudo -n /usr/local/sbin/hockeylan-deploy \
+            --deploy \
+            "$GITHUB_SHA"
