@@ -30,16 +30,9 @@ function Layout() {
                     <div className="flex items-center justify-between gap-4">
                         <Link
                             to="/"
-                            className="flex min-h-11 items-center gap-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-950"
+                            className="flex min-h-11 items-center rounded-xl focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-950"
                             aria-label="HockeyLån – gå till startsidan"
                         >
-                            <span
-                                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-sm font-black text-blue-950 shadow-sm"
-                                aria-hidden="true"
-                            >
-                                HL
-                            </span>
-
                             <span className="text-xl font-black tracking-tight text-white">
                                 HockeyLån
                             </span>

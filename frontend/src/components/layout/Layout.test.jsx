@@ -148,7 +148,8 @@ describe("Layout", () => {
             screen.getByRole(
                 "link",
                 {
-                    name: "Start",
+                    name:
+                        "Start",
                 }
             )
         ).not.toHaveAttribute(
@@ -158,6 +159,12 @@ describe("Layout", () => {
 
     test("renders accessible brand and privacy links", () => {
         renderLayout();
+
+        expect(
+            screen.queryByText(
+                /^HL$/
+            )
+        ).not.toBeInTheDocument();
 
         expect(
             screen.getByRole(
