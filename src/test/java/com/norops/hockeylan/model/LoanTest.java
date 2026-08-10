@@ -5,8 +5,10 @@ import org.junit.jupiter.api.Test;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -55,6 +57,93 @@ class LoanTest {
 
         assertFalse(
                 loan.isReturned()
+        );
+    }
+
+    @Test
+    void loanShouldAllowMissingExpectedReturnDate() {
+        Loan loan =
+                loanWithExpectedDate(
+                        null
+                );
+
+        loan.setLoanDate(
+                LocalDateTime.of(
+                        2026,
+                        7,
+                        30,
+                        12,
+                        0
+                )
+        );
+
+        assertDoesNotThrow(
+                loan::
+                        validateAndNormalizeBeforeSave
+        );
+
+        assertNull(
+                loan.getExpectedReturnDate()
+        );
+    }
+
+    @Test
+    void activeLoanWithoutExpectedDateShouldNotBeOverdue() {
+        Loan loan =
+                loanWithExpectedDate(
+                        null
+                );
+
+        loan.setLoanDate(
+                LocalDateTime.of(
+                        2026,
+                        7,
+                        20,
+                        10,
+                        0
+                )
+        );
+
+        assertFalse(
+                loan.isOverdue(
+                        LocalDate.of(
+                                2030,
+                                1,
+                                1
+                        )
+                )
+        );
+    }
+
+    @Test
+    void returnedLoanWithoutExpectedDateShouldNotBeReturnedLate() {
+        Loan loan =
+                loanWithExpectedDate(
+                        null
+                );
+
+        loan.setLoanDate(
+                LocalDateTime.of(
+                        2026,
+                        7,
+                        20,
+                        10,
+                        0
+                )
+        );
+
+        loan.registerReturn(
+                LocalDateTime.of(
+                        2026,
+                        8,
+                        30,
+                        12,
+                        0
+                )
+        );
+
+        assertFalse(
+                loan.wasReturnedLate()
         );
     }
 

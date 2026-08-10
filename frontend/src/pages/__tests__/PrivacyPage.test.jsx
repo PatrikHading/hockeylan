@@ -14,24 +14,16 @@ describe("PrivacyPage", () => {
         render(<PrivacyPage />);
 
         expect(
-            screen.getByRole(
-                "main",
-                {
-                    name:
-                        "Så behandlar HockeyLån personuppgifter",
-                }
-            )
+            screen.getByRole("main", {
+                name: "Så behandlar HockeyLån personuppgifter",
+            }),
         ).toBeInTheDocument();
 
         expect(
-            screen.getByRole(
-                "heading",
-                {
-                    level: 1,
-                    name:
-                        "Så behandlar HockeyLån personuppgifter",
-                }
-            )
+            screen.getByRole("heading", {
+                level: 1,
+                name: "Så behandlar HockeyLån personuppgifter",
+            }),
         ).toBeInTheDocument();
     });
 
@@ -40,37 +32,61 @@ describe("PrivacyPage", () => {
 
         expect(
             screen.getByText(
-                "låntagarens namn,"
-            )
+                "låntagarens namn,",
+            ),
         ).toBeInTheDocument();
 
         expect(
             screen.getByText(
-                "e-postadress,"
-            )
+                "e-postadress,",
+            ),
         ).toBeInTheDocument();
 
         expect(
             screen.getByText(
-                "telefonnummer,"
-            )
+                "telefonnummer,",
+            ),
         ).toBeInTheDocument();
 
         expect(
-            screen.getByRole(
-                "heading",
-                {
-                    name:
-                        "Varför uppgifterna behandlas",
-                }
-            )
+            screen.getByRole("heading", {
+                name: "Varför uppgifterna behandlas",
+            }),
         ).toBeInTheDocument();
 
         expect(
             screen.getByText(
-                /uppgifterna används för att administrera utlåning/i
-            )
+                /uppgifterna används för att administrera utlåning/i,
+            ),
         ).toBeInTheDocument();
+
+        expect(
+            screen.getByText(
+                /eventuellt förväntat återlämningsdatum/i,
+            ),
+        ).toBeInTheDocument();
+
+        expect(
+            screen.getByText(
+                /aliasnamnet tillsammans med en återanvändbar kopia/i,
+            ),
+        ).toHaveTextContent(
+            /namn, e-postadress och telefonnummer/i,
+        );
+
+        expect(
+            screen.getByText(
+                /ett alias behöver inte väljas eller sparas/i,
+            ),
+        ).toBeInTheDocument();
+
+        expect(
+            screen.getByText(
+                /ändringen endast det aktuella lånet/i,
+            ),
+        ).toHaveTextContent(
+            /ändrar inte det sparade Aliaset/i,
+        );
     });
 
     test("describes necessary cookies and logging restrictions", () => {
@@ -78,20 +94,20 @@ describe("PrivacyPage", () => {
 
         expect(
             screen.getByText(
-                /tekniskt nödvändiga cookies/i
-            )
+                /tekniskt nödvändiga cookies/i,
+            ),
         ).toBeInTheDocument();
 
         expect(
             screen.getByText(
-                /namn, e-postadress och telefonnummer ska inte skrivas/i
-            )
+                /namn, e-postadress, telefonnummer och aliasnamn ska inte skrivas/i,
+            ),
         ).toBeInTheDocument();
 
         expect(
             screen.getByText(
-                /använder inte cookies för reklam/i
-            )
+                /använder inte cookies för reklam/i,
+            ),
         ).toBeInTheDocument();
     });
 
@@ -99,33 +115,35 @@ describe("PrivacyPage", () => {
         render(<PrivacyPage />);
 
         expect(
-            screen.getByRole(
-                "note",
-                {
-                    name:
-                        /verksamhetsbeslut krävs/i,
-                }
-            )
+            screen.getByRole("note", {
+                name: /verksamhetsbeslut krävs/i,
+            }),
         ).toHaveTextContent(
-            /lagringstid.*raderingsrutin/i
+            /lagringstid.*raderingsrutin/i,
         );
 
         expect(
-            screen.getByRole(
-                "note",
-                {
-                    name:
-                        /informationen måste kompletteras/i,
-                }
-            )
+            screen.getByRole("note", {
+                name: /informationen måste kompletteras/i,
+            }),
         ).toHaveTextContent(
-            /rättslig grund för behandlingen/i
+            /rättslig grund för behandlingen/i,
         );
 
         expect(
             screen.getByText(
-                /någon lagringstid anges inte här/i
-            )
-        ).toBeInTheDocument();
+                /någon lagringstid anges inte här/i,
+            ),
+        ).toHaveTextContent(
+            /låneuppgifter samt sparade Alias/i,
+        );
+
+        expect(
+            screen.getByRole("note", {
+                name: /verksamhetsbeslut krävs/i,
+            }),
+        ).toHaveTextContent(
+            /raderingsrutin för både låneuppgifter och Alias/i,
+        );
     });
 });

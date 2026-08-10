@@ -55,8 +55,6 @@ public class GlobalExceptionHandler {
                     "E-post måste anges.",
                     "Telefonnummer måste anges.",
                     "Förväntat återlämningsdatum "
-                            + "måste anges.",
-                    "Förväntat återlämningsdatum "
                             + "får inte ligga före "
                             + "utlåningsdatumet."
             );
@@ -129,9 +127,14 @@ public class GlobalExceptionHandler {
                                     + "otillåtna tecken."
                     ),
                     Map.entry(
-                            "Expected return date is required",
-                            "Förväntat återlämningsdatum "
-                                    + "måste anges."
+                            "Alias name must be between "
+                                    + "2 and 100 characters",
+                            "Aliasnamnet måste innehålla "
+                                    + "mellan 2 och 100 tecken."
+                    ),
+                    Map.entry(
+                            "Alias name must not be blank",
+                            "Aliasnamn måste anges."
                     ),
                     Map.entry(
                             "Expected return date must be "

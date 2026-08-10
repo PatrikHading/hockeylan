@@ -63,6 +63,25 @@ const availableEquipment = {
     active: true,
 };
 
+const aliasSummaries = [
+    {
+        id: 7,
+        aliasName: "Lagledaren",
+    },
+    {
+        id: 12,
+        aliasName: "Materialaren",
+    },
+];
+
+const aliasDetails = {
+    id: 7,
+    aliasName: "Lagledaren",
+    borrowerName: "Anna Andersson",
+    email: "anna@example.com",
+    phoneNumber: "+46701112233",
+};
+
 function futureDate() {
     const date = new Date();
 
@@ -81,8 +100,26 @@ function futureDate() {
     ].join("-");
 }
 
+function yesterday() {
+    const date = new Date();
+
+    date.setDate(
+        date.getDate() - 1
+    );
+
+    return [
+        date.getFullYear(),
+        String(
+            date.getMonth() + 1
+        ).padStart(2, "0"),
+        String(
+            date.getDate()
+        ).padStart(2, "0"),
+    ].join("-");
+}
+
 function registeredLoan(
-    expectedReturnDate
+    expectedReturnDate = null
 ) {
     return {
         id: 10,
@@ -102,6 +139,72 @@ function registeredLoan(
         equipment:
         availableEquipment,
     };
+}
+
+function mockInitialLoad({
+                             equipment =
+                             availableEquipment,
+                             aliases =
+                             aliasSummaries,
+                             equipmentError,
+                             aliasesError,
+                             alias =
+                             aliasDetails,
+                             aliasError,
+                         } = {}) {
+    api.get.mockImplementation(
+        (url) => {
+            if (
+                url ===
+                "/admin/borrower-aliases"
+            ) {
+                return aliasesError
+                    ? Promise.reject(
+                        aliasesError
+                    )
+                    : Promise.resolve({
+                        data:
+                        aliases,
+                    });
+            }
+
+            if (
+                url.startsWith(
+                    "/admin/borrower-aliases/"
+                )
+            ) {
+                return aliasError
+                    ? Promise.reject(
+                        aliasError
+                    )
+                    : Promise.resolve({
+                        data:
+                        alias,
+                    });
+            }
+
+            if (
+                url.startsWith(
+                    "/loan/"
+                )
+            ) {
+                return equipmentError
+                    ? Promise.reject(
+                        equipmentError
+                    )
+                    : Promise.resolve({
+                        data:
+                        equipment,
+                    });
+            }
+
+            return Promise.reject(
+                new Error(
+                    `Unexpected GET ${url}`
+                )
+            );
+        }
+    );
 }
 
 function renderLoanForm(
@@ -150,17 +253,14 @@ function renderLoanForm(
     );
 }
 
-function fillForm(
-    expectedReturnDate,
-    {
-        borrowerName =
-        "Patrik Hading",
-        email =
-        "patrik@example.com",
-        phoneNumber =
-        "+46701234567",
-    } = {}
-) {
+function fillContactFields({
+                               borrowerName =
+                               "Patrik Hading",
+                               email =
+                               "patrik@example.com",
+                               phoneNumber =
+                               "+46701234567",
+                           } = {}) {
     fireEvent.change(
         screen.getByLabelText(
             /låntagarens namn/i
@@ -179,7 +279,8 @@ function fillForm(
         ),
         {
             target: {
-                value: email,
+                value:
+                email,
             },
         }
     );
@@ -195,15 +296,16 @@ function fillForm(
             },
         }
     );
+}
 
+function fillReturnDate(value) {
     fireEvent.change(
         screen.getByLabelText(
             /förväntat återlämningsdatum/i
         ),
         {
             target: {
-                value:
-                expectedReturnDate,
+                value,
             },
         }
     );
@@ -228,10 +330,8 @@ describe("LoanForm", () => {
         vi.clearAllMocks();
     });
 
-    test("renders accessible loading state and fetches equipment", async () => {
-        api.get.mockResolvedValueOnce({
-            data: availableEquipment,
-        });
+    test("renders loading state and fetches equipment and aliases", async () => {
+        mockInitialLoad();
 
         renderLoanForm();
 
@@ -265,10 +365,6 @@ describe("LoanForm", () => {
 
         expect(
             api.get
-        ).toHaveBeenCalledTimes(1);
-
-        expect(
-            api.get
         ).toHaveBeenCalledWith(
             "/loan/HELMET-001",
             {
@@ -278,15 +374,25 @@ describe("LoanForm", () => {
                     ),
             }
         );
+
+        expect(
+            api.get
+        ).toHaveBeenCalledWith(
+            "/admin/borrower-aliases",
+            {
+                signal:
+                    expect.any(
+                        AbortSignal
+                    ),
+            }
+        );
     });
 
-    test("encodes serial number before API request", async () => {
-        api.get.mockResolvedValueOnce({
-            data: availableEquipment,
-        });
+    test("encodes serial number before equipment request", async () => {
+        mockInitialLoad();
 
         renderLoanForm(
-            "HELMET_001"
+            "HELMET 001"
         );
 
         await screen.findByRole(
@@ -300,7 +406,7 @@ describe("LoanForm", () => {
         expect(
             api.get
         ).toHaveBeenCalledWith(
-            "/loan/HELMET_001",
+            "/loan/HELMET%20001",
             {
                 signal:
                     expect.any(
@@ -310,28 +416,18 @@ describe("LoanForm", () => {
         );
     });
 
-    test("renders equipment and administrator fields", async () => {
-        api.get.mockResolvedValueOnce({
-            data: availableEquipment,
-        });
+    test("renders equipment, alias selector and optional return date", async () => {
+        mockInitialLoad();
 
         renderLoanForm();
 
-        expect(
-            await screen.findByRole(
-                "heading",
-                {
-                    name:
-                        /registrera lån/i,
-                }
-            )
-        ).toBeInTheDocument();
-
-        expect(
-            screen.getByText(
-                /endast.*utsedd.*klubbadministratör/i
-            )
-        ).toBeInTheDocument();
+        await screen.findByRole(
+            "heading",
+            {
+                name:
+                    /registrera lån/i,
+            }
+        );
 
         expect(
             screen.getByText(
@@ -346,10 +442,6 @@ describe("LoanForm", () => {
         ).toBeInTheDocument();
 
         expect(
-            screen.getByText("M")
-        ).toBeInTheDocument();
-
-        expect(
             screen.getByText(
                 "Bauer"
             )
@@ -357,54 +449,27 @@ describe("LoanForm", () => {
 
         expect(
             screen.getByText(
-                "Re-Akt 150"
+                "Lagledaren"
             )
         ).toBeInTheDocument();
 
         expect(
             screen.getByText(
-                "Bra"
-            )
-        ).toBeInTheDocument();
-
-        expect(
-            screen.getByText(
-                "Junior"
-            )
-        ).toBeInTheDocument();
-
-        expect(
-            screen.getByText(
-                "Hylla A2"
-            )
-        ).toBeInTheDocument();
-
-        expect(
-            screen.getByText(
-                "Svart hjälm"
+                "Materialaren"
             )
         ).toBeInTheDocument();
 
         expect(
             screen.getByLabelText(
-                /låntagarens namn/i
+                /välj alias/i
             )
         ).toBeEnabled();
 
         expect(
             screen.getByLabelText(
-                /låntagarens e-post/i
+                /spara som alias/i
             )
         ).toBeEnabled();
-
-        expect(
-            screen.getByLabelText(
-                /låntagarens telefonnummer/i
-            )
-        ).toHaveAttribute(
-            "inputmode",
-            "tel"
-        );
 
         const dateInput =
             screen.getByLabelText(
@@ -417,7 +482,7 @@ describe("LoanForm", () => {
 
         expect(
             dateInput
-        ).toBeRequired();
+        ).not.toBeRequired();
 
         expect(
             dateInput
@@ -428,21 +493,20 @@ describe("LoanForm", () => {
         ).not.toHaveAttribute(
             "max"
         );
+
+        expect(
+            screen.getByText(
+                /valfritt.*ingen maximal lånetid/i
+            )
+        ).toBeInTheDocument();
     });
 
-    test("submits normalized loan data and navigates to success page", async () => {
-        const expectedReturnDate =
-            futureDate();
-
-        api.get.mockResolvedValueOnce({
-            data: availableEquipment,
-        });
+    test("submits a manual loan without expected return date", async () => {
+        mockInitialLoad();
 
         api.post.mockResolvedValueOnce({
             data:
-                registeredLoan(
-                    expectedReturnDate
-                ),
+                registeredLoan(null),
         });
 
         renderLoanForm();
@@ -451,17 +515,14 @@ describe("LoanForm", () => {
             /låntagarens namn/i
         );
 
-        fillForm(
-            expectedReturnDate,
-            {
-                borrowerName:
-                    "  Patrik Hading  ",
-                email:
-                    "  patrik@example.com  ",
-                phoneNumber:
-                    "  +46701234567  ",
-            }
-        );
+        fillContactFields({
+            borrowerName:
+                "  Patrik Hading  ",
+            email:
+                "  patrik@example.com  ",
+            phoneNumber:
+                "  +46701234567  ",
+        });
 
         submitForm();
 
@@ -477,7 +538,10 @@ describe("LoanForm", () => {
                         "patrik@example.com",
                     phoneNumber:
                         "+46701234567",
-                    expectedReturnDate,
+                    aliasName:
+                        null,
+                    expectedReturnDate:
+                        null,
                 }
             );
         });
@@ -489,10 +553,46 @@ describe("LoanForm", () => {
         ).toBeInTheDocument();
     });
 
-    test("shows local validation errors and focuses first invalid field", async () => {
-        api.get.mockResolvedValueOnce({
-            data: availableEquipment,
+    test("submits an explicitly selected expected return date", async () => {
+        const expectedReturnDate =
+            futureDate();
+
+        mockInitialLoad();
+
+        api.post.mockResolvedValueOnce({
+            data:
+                registeredLoan(
+                    expectedReturnDate
+                ),
         });
+
+        renderLoanForm();
+
+        await screen.findByLabelText(
+            /låntagarens namn/i
+        );
+
+        fillContactFields();
+        fillReturnDate(
+            expectedReturnDate
+        );
+
+        submitForm();
+
+        await waitFor(() => {
+            expect(
+                api.post
+            ).toHaveBeenCalledWith(
+                "/admin/loans/HELMET-001",
+                expect.objectContaining({
+                    expectedReturnDate,
+                })
+            );
+        });
+    });
+
+    test("validates required contact fields but not an empty return date", async () => {
+        mockInitialLoad();
 
         renderLoanForm();
 
@@ -521,16 +621,10 @@ describe("LoanForm", () => {
         ).toBeInTheDocument();
 
         expect(
-            screen.getByText(
-                /förväntat återlämningsdatum måste anges/i
+            screen.queryByText(
+                /återlämningsdatum måste anges/i
             )
-        ).toBeInTheDocument();
-
-        expect(
-            screen.getByText(
-                /ett eller flera fält behöver rättas/i
-            )
-        ).toBeInTheDocument();
+        ).not.toBeInTheDocument();
 
         await waitFor(() => {
             expect(
@@ -545,9 +639,201 @@ describe("LoanForm", () => {
         ).not.toHaveBeenCalled();
     });
 
-    test("shows validation error for invalid email", async () => {
-        api.get.mockResolvedValueOnce({
-            data: availableEquipment,
+    test("rejects a return date before today", async () => {
+        mockInitialLoad();
+
+        renderLoanForm();
+
+        await screen.findByLabelText(
+            /låntagarens namn/i
+        );
+
+        fillContactFields();
+        fillReturnDate(yesterday());
+
+        submitForm();
+
+        expect(
+            await screen.findByText(
+                /får inte ligga före dagens datum/i
+            )
+        ).toBeInTheDocument();
+
+        expect(
+            api.post
+        ).not.toHaveBeenCalled();
+    });
+
+    test("loads selected alias and allows loan-specific edits", async () => {
+        const user =
+            userEvent.setup();
+
+        mockInitialLoad();
+
+        api.post.mockResolvedValueOnce({
+            data:
+                registeredLoan(null),
+        });
+
+        renderLoanForm();
+
+        const selector =
+            await screen.findByLabelText(
+                /välj alias/i
+            );
+
+        await user.selectOptions(
+            selector,
+            "7"
+        );
+
+        await waitFor(() => {
+            expect(
+                screen.getByLabelText(
+                    /låntagarens namn/i
+                )
+            ).toHaveValue(
+                "Anna Andersson"
+            );
+
+            expect(
+                screen.getByLabelText(
+                    /låntagarens e-post/i
+                )
+            ).toHaveValue(
+                "anna@example.com"
+            );
+
+            expect(
+                screen.getByLabelText(
+                    /låntagarens telefonnummer/i
+                )
+            ).toHaveValue(
+                "+46701112233"
+            );
+        });
+
+        expect(
+            api.get
+        ).toHaveBeenCalledWith(
+            "/admin/borrower-aliases/7",
+            {
+                signal:
+                    expect.any(
+                        AbortSignal
+                    ),
+            }
+        );
+
+        expect(
+            screen.queryByLabelText(
+                /spara som alias/i
+            )
+        ).not.toBeInTheDocument();
+
+        expect(
+            screen.getByText(
+                /ändringar nedan gäller endast detta lån/i
+            )
+        ).toBeInTheDocument();
+
+        await user.clear(
+            screen.getByLabelText(
+                /låntagarens namn/i
+            )
+        );
+
+        await user.type(
+            screen.getByLabelText(
+                /låntagarens namn/i
+            ),
+            "Anna Tillfällig"
+        );
+
+        submitForm();
+
+        await waitFor(() => {
+            expect(
+                api.post
+            ).toHaveBeenCalledWith(
+                "/admin/loans/HELMET-001",
+                {
+                    borrowerName:
+                        "Anna Tillfällig",
+                    email:
+                        "anna@example.com",
+                    phoneNumber:
+                        "+46701112233",
+                    aliasName:
+                        null,
+                    expectedReturnDate:
+                        null,
+                }
+            );
+        });
+    });
+
+    test("shows alias name field only when save as alias is selected", async () => {
+        const user =
+            userEvent.setup();
+
+        mockInitialLoad();
+
+        renderLoanForm();
+
+        await screen.findByLabelText(
+            /spara som alias/i
+        );
+
+        expect(
+            screen.queryByLabelText(
+                /^aliasnamn/i
+            )
+        ).not.toBeInTheDocument();
+
+        await user.click(
+            screen.getByLabelText(
+                /spara som alias/i
+            )
+        );
+
+        const aliasNameInput =
+            screen.getByLabelText(
+                /^aliasnamn/i
+            );
+
+        expect(
+            aliasNameInput
+        ).toBeInTheDocument();
+
+        await waitFor(() => {
+            expect(
+                aliasNameInput
+            ).toHaveFocus();
+        });
+
+        await user.click(
+            screen.getByLabelText(
+                /spara som alias/i
+            )
+        );
+
+        expect(
+            screen.queryByLabelText(
+                /^aliasnamn/i
+            )
+        ).not.toBeInTheDocument();
+    });
+
+    test("requires and normalizes alias name when saving a new alias", async () => {
+        const user =
+            userEvent.setup();
+
+        mockInitialLoad();
+
+        api.post.mockResolvedValueOnce({
+            data:
+                registeredLoan(null),
         });
 
         renderLoanForm();
@@ -556,25 +842,97 @@ describe("LoanForm", () => {
             /låntagarens namn/i
         );
 
-        fillForm(
-            futureDate(),
-            {
-                email:
-                    "not-an-email",
-            }
+        fillContactFields();
+
+        await user.click(
+            screen.getByLabelText(
+                /spara som alias/i
+            )
         );
 
         submitForm();
 
         expect(
             await screen.findByText(
-                /ange en giltig e-postadress/i
+                /^aliasnamn måste anges/i
+            )
+        ).toBeInTheDocument();
+
+        expect(
+            api.post
+        ).not.toHaveBeenCalled();
+
+        await user.type(
+            screen.getByLabelText(
+                /^aliasnamn/i
+            ),
+            "  Lagets   målvakt  "
+        );
+
+        submitForm();
+
+        await waitFor(() => {
+            expect(
+                api.post
+            ).toHaveBeenCalledWith(
+                "/admin/loans/HELMET-001",
+                expect.objectContaining({
+                    aliasName:
+                        "Lagets målvakt",
+                })
+            );
+        });
+    });
+
+    test("shows duplicate alias error at alias name field", async () => {
+        const user =
+            userEvent.setup();
+
+        const duplicateError = {
+            apiCode:
+                "DUPLICATE_RESOURCE",
+            displayMessage:
+                "Det finns redan ett Alias med det namnet.",
+        };
+
+        mockInitialLoad();
+
+        api.post.mockRejectedValueOnce(
+            duplicateError
+        );
+
+        renderLoanForm();
+
+        await screen.findByLabelText(
+            /låntagarens namn/i
+        );
+
+        fillContactFields();
+
+        await user.click(
+            screen.getByLabelText(
+                /spara som alias/i
+            )
+        );
+
+        await user.type(
+            screen.getByLabelText(
+                /^aliasnamn/i
+            ),
+            "Lagledaren"
+        );
+
+        submitForm();
+
+        expect(
+            await screen.findByText(
+                /finns redan ett alias med det namnet/i
             )
         ).toBeInTheDocument();
 
         expect(
             screen.getByLabelText(
-                /låntagarens e-post/i
+                /^aliasnamn/i
             )
         ).toHaveAttribute(
             "aria-invalid",
@@ -582,54 +940,99 @@ describe("LoanForm", () => {
         );
 
         expect(
-            api.post
-        ).not.toHaveBeenCalled();
+            screen.queryByText(
+                /^lånet kunde inte registreras$/i
+            )
+        ).not.toBeInTheDocument();
+
+        await waitFor(() => {
+            expect(
+                screen.getByLabelText(
+                    /^aliasnamn/i
+                )
+            ).toHaveFocus();
+        });
     });
 
-    test("clears field error when user changes the field", async () => {
-        const user =
-            userEvent.setup();
-
-        api.get.mockResolvedValueOnce({
-            data: availableEquipment,
+    test("keeps manual registration available when alias list fails", async () => {
+        mockInitialLoad({
+            aliasesError: {
+                apiCode:
+                    "NETWORK_ERROR",
+                displayMessage:
+                    "Aliastjänsten svarar inte.",
+            },
         });
 
         renderLoanForm();
 
-        await screen.findByLabelText(
-            /låntagarens namn/i
-        );
-
-        submitForm();
-
         expect(
             await screen.findByText(
-                /låntagarens namn måste anges/i
+                /aliastjänsten svarar inte/i
             )
         ).toBeInTheDocument();
 
-        await user.type(
+        expect(
             screen.getByLabelText(
                 /låntagarens namn/i
+            )
+        ).toBeEnabled();
+
+        expect(
+            screen.getByLabelText(
+                /spara som alias/i
+            )
+        ).toBeEnabled();
+    });
+
+    test("restores manual mode when selected alias cannot be loaded", async () => {
+        const user =
+            userEvent.setup();
+
+        mockInitialLoad({
+            aliasError: {
+                apiCode:
+                    "RESOURCE_NOT_FOUND",
+                displayMessage:
+                    "Aliaset finns inte längre.",
+            },
+        });
+
+        renderLoanForm();
+
+        await user.selectOptions(
+            await screen.findByLabelText(
+                /välj alias/i
             ),
-            "Patrik Hading"
+            "7"
         );
 
         expect(
-            screen.queryByText(
-                /låntagarens namn måste anges/i
+            await screen.findByText(
+                /aliaset finns inte längre/i
             )
-        ).not.toBeInTheDocument();
+        ).toBeInTheDocument();
+
+        expect(
+            screen.getByLabelText(
+                /välj alias/i
+            )
+        ).toHaveValue("");
+
+        expect(
+            screen.getByLabelText(
+                /låntagarens namn/i
+            )
+        ).toBeEnabled();
+
+        expect(
+            screen.getByLabelText(
+                /spara som alias/i
+            )
+        ).toBeInTheDocument();
     });
 
     test("shows backend field errors at corresponding controls", async () => {
-        const expectedReturnDate =
-            futureDate();
-
-        api.get.mockResolvedValueOnce({
-            data: availableEquipment,
-        });
-
         const validationError = {
             apiCode:
                 "VALIDATION_ERROR",
@@ -643,6 +1046,8 @@ describe("LoanForm", () => {
                 "Kontrollera formuläret.",
         };
 
+        mockInitialLoad();
+
         api.post.mockRejectedValueOnce(
             validationError
         );
@@ -653,10 +1058,7 @@ describe("LoanForm", () => {
             /låntagarens namn/i
         );
 
-        fillForm(
-            expectedReturnDate
-        );
-
+        fillContactFields();
         submitForm();
 
         expect(
@@ -694,7 +1096,7 @@ describe("LoanForm", () => {
         );
     });
 
-    test("shows unknown QR code state without retry button", async () => {
+    test("shows unknown QR state without retry button", async () => {
         const notFoundError = {
             apiCode:
                 "EQUIPMENT_NOT_FOUND",
@@ -702,9 +1104,10 @@ describe("LoanForm", () => {
                 "Utrustningen kunde inte hittas.",
         };
 
-        api.get.mockRejectedValueOnce(
-            notFoundError
-        );
+        mockInitialLoad({
+            equipmentError:
+            notFoundError,
+        });
 
         renderLoanForm(
             "UNKNOWN-001"
@@ -753,21 +1156,50 @@ describe("LoanForm", () => {
         );
     });
 
-    test("allows retry after temporary fetch error", async () => {
+    test("allows retry after temporary equipment fetch error", async () => {
         const user =
             userEvent.setup();
 
-        api.get
-            .mockRejectedValueOnce({
-                apiCode:
-                    "NETWORK_ERROR",
-                displayMessage:
-                    "Kunde inte ansluta till servern.",
-            })
-            .mockResolvedValueOnce({
-                data:
-                availableEquipment,
-            });
+        let equipmentAttempts = 0;
+
+        api.get.mockImplementation(
+            (url) => {
+                if (
+                    url ===
+                    "/admin/borrower-aliases"
+                ) {
+                    return Promise.resolve({
+                        data: [],
+                    });
+                }
+
+                if (
+                    url.startsWith(
+                        "/loan/"
+                    )
+                ) {
+                    equipmentAttempts += 1;
+
+                    return equipmentAttempts === 1
+                        ? Promise.reject({
+                            apiCode:
+                                "NETWORK_ERROR",
+                            displayMessage:
+                                "Kunde inte ansluta till servern.",
+                        })
+                        : Promise.resolve({
+                            data:
+                            availableEquipment,
+                        });
+                }
+
+                return Promise.reject(
+                    new Error(
+                        `Unexpected GET ${url}`
+                    )
+                );
+            }
+        );
 
         renderLoanForm();
 
@@ -798,76 +1230,94 @@ describe("LoanForm", () => {
         ).toBeInTheDocument();
 
         expect(
-            api.get
-        ).toHaveBeenCalledTimes(2);
+            equipmentAttempts
+        ).toBe(2);
     });
 
-    test("disables form when equipment is already loaned", async () => {
-        api.get.mockResolvedValueOnce({
-            data: {
+    test.each([
+        {
+            title:
+                "already loaned",
+            equipment: {
                 ...availableEquipment,
                 available: false,
             },
-        });
+            heading:
+                /redan utlånad/i,
+            button:
+                /redan utlånad/i,
+        },
+        {
+            title:
+                "inactive",
+            equipment: {
+                ...availableEquipment,
+                active: false,
+            },
+            heading:
+                /inaktiverad/i,
+            button:
+                /inaktiverad/i,
+        },
+    ])(
+        "disables form when equipment is $title",
+        async ({
+                   equipment,
+                   heading,
+                   button,
+               }) => {
+            mockInitialLoad({
+                equipment,
+            });
 
-        renderLoanForm();
+            renderLoanForm();
 
-        expect(
-            await screen.findByRole(
-                "heading",
-                {
-                    name:
-                        /redan utlånad/i,
-                }
-            )
-        ).toBeInTheDocument();
+            expect(
+                await screen.findByRole(
+                    "heading",
+                    {
+                        name:
+                        heading,
+                    }
+                )
+            ).toBeInTheDocument();
 
-        expect(
-            screen.getByLabelText(
-                /låntagarens namn/i
-            )
-        ).toBeDisabled();
+            expect(
+                screen.getByLabelText(
+                    /välj alias/i
+                )
+            ).toBeDisabled();
 
-        expect(
-            screen.getByLabelText(
-                /låntagarens e-post/i
-            )
-        ).toBeDisabled();
+            expect(
+                screen.getByLabelText(
+                    /låntagarens namn/i
+                )
+            ).toBeDisabled();
 
-        expect(
-            screen.getByLabelText(
-                /låntagarens telefonnummer/i
-            )
-        ).toBeDisabled();
+            expect(
+                screen.getByLabelText(
+                    /förväntat återlämningsdatum/i
+                )
+            ).toBeDisabled();
 
-        expect(
-            screen.getByLabelText(
-                /förväntat återlämningsdatum/i
-            )
-        ).toBeDisabled();
+            expect(
+                screen.getByRole(
+                    "button",
+                    {
+                        name:
+                        button,
+                    }
+                )
+            ).toBeDisabled();
 
-        expect(
-            screen.getByRole(
-                "button",
-                {
-                    name:
-                        /redan utlånad/i,
-                }
-            )
-        ).toBeDisabled();
-
-        expect(
-            api.post
-        ).not.toHaveBeenCalled();
-    });
+            expect(
+                api.post
+            ).not.toHaveBeenCalled();
+        }
+    );
 
     test("updates form when equipment becomes loaned during submission", async () => {
-        const expectedReturnDate =
-            futureDate();
-
-        api.get.mockResolvedValueOnce({
-            data: availableEquipment,
-        });
+        mockInitialLoad();
 
         api.post.mockRejectedValueOnce({
             apiCode:
@@ -882,10 +1332,7 @@ describe("LoanForm", () => {
             /låntagarens namn/i
         );
 
-        fillForm(
-            expectedReturnDate
-        );
-
+        fillContactFields();
         submitForm();
 
         expect(
@@ -909,12 +1356,6 @@ describe("LoanForm", () => {
         ).toBeDisabled();
 
         expect(
-            screen.getByLabelText(
-                /låntagarens namn/i
-            )
-        ).toBeDisabled();
-
-        expect(
             hasErrorCode
         ).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -925,57 +1366,7 @@ describe("LoanForm", () => {
         );
     });
 
-    test("disables form when equipment is inactive", async () => {
-        api.get.mockResolvedValueOnce({
-            data: {
-                ...availableEquipment,
-                active: false,
-            },
-        });
-
-        renderLoanForm();
-
-        expect(
-            await screen.findByRole(
-                "heading",
-                {
-                    name:
-                        /inaktiverad/i,
-                }
-            )
-        ).toBeInTheDocument();
-
-        expect(
-            screen.getByLabelText(
-                /låntagarens namn/i
-            )
-        ).toBeDisabled();
-
-        expect(
-            screen.getByLabelText(
-                /förväntat återlämningsdatum/i
-            )
-        ).toBeDisabled();
-
-        expect(
-            screen.getByRole(
-                "button",
-                {
-                    name:
-                        /inaktiverad/i,
-                }
-            )
-        ).toBeDisabled();
-
-        expect(
-            api.post
-        ).not.toHaveBeenCalled();
-    });
-
     test("shows normalized timeout error and restores form", async () => {
-        const expectedReturnDate =
-            futureDate();
-
         const timeoutError = {
             apiCode:
                 "REQUEST_TIMEOUT",
@@ -983,9 +1374,7 @@ describe("LoanForm", () => {
                 "Anropet tog för lång tid. Försök igen.",
         };
 
-        api.get.mockResolvedValueOnce({
-            data: availableEquipment,
-        });
+        mockInitialLoad();
 
         api.post.mockRejectedValueOnce(
             timeoutError
@@ -997,10 +1386,7 @@ describe("LoanForm", () => {
             /låntagarens namn/i
         );
 
-        fillForm(
-            expectedReturnDate
-        );
-
+        fillContactFields();
         submitForm();
 
         expect(
@@ -1028,14 +1414,9 @@ describe("LoanForm", () => {
     });
 
     test("prevents duplicate submissions while registration is pending", async () => {
-        const expectedReturnDate =
-            futureDate();
-
         let resolveRequest;
 
-        api.get.mockResolvedValueOnce({
-            data: availableEquipment,
-        });
+        mockInitialLoad();
 
         api.post.mockImplementationOnce(
             () =>
@@ -1053,9 +1434,7 @@ describe("LoanForm", () => {
             /låntagarens namn/i
         );
 
-        fillForm(
-            expectedReturnDate
-        );
+        fillContactFields();
 
         const form = screen
             .getByRole(
@@ -1087,9 +1466,7 @@ describe("LoanForm", () => {
         await act(async () => {
             resolveRequest({
                 data:
-                    registeredLoan(
-                        expectedReturnDate
-                    ),
+                    registeredLoan(null),
             });
         });
 
@@ -1100,7 +1477,7 @@ describe("LoanForm", () => {
         ).toBeInTheDocument();
     });
 
-    test("aborts equipment request when page unmounts", () => {
+    test("aborts equipment and alias-list requests when page unmounts", () => {
         api.get.mockReturnValue(
             new Promise(() => {})
         );
@@ -1108,19 +1485,35 @@ describe("LoanForm", () => {
         const view =
             renderLoanForm();
 
-        const requestConfiguration =
-            api.get.mock.calls[0][1];
+        const requestSignals =
+            api.get.mock.calls.map(
+                ([
+                     ,
+                     configuration,
+                 ]) =>
+                    configuration.signal
+            );
 
         expect(
-            requestConfiguration
-                .signal.aborted
-        ).toBe(false);
+            requestSignals
+        ).toHaveLength(2);
+
+        requestSignals.forEach(
+            (signal) => {
+                expect(
+                    signal.aborted
+                ).toBe(false);
+            }
+        );
 
         view.unmount();
 
-        expect(
-            requestConfiguration
-                .signal.aborted
-        ).toBe(true);
+        requestSignals.forEach(
+            (signal) => {
+                expect(
+                    signal.aborted
+                ).toBe(true);
+            }
+        );
     });
 });

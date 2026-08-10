@@ -1,5 +1,6 @@
 package com.norops.hockeylan.controller;
 
+import com.norops.hockeylan.dto.LoanFormDTO;
 import com.norops.hockeylan.exception.BusinessRuleException;
 import com.norops.hockeylan.exception.GlobalExceptionHandler;
 import com.norops.hockeylan.model.Equipment;
@@ -21,7 +22,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -145,8 +148,18 @@ class AdminLoanRestControllerTest {
     }
 
     @Test
-    void registerLoanShouldRejectMissingDate()
+    void registerLoanShouldAcceptMissingDate()
             throws Exception {
+        Loan loan =
+                registeredLoan(null);
+
+        when(
+                loanService.registerLoan(
+                        eq("HELMET-001"),
+                        any()
+                )
+        ).thenReturn(loan);
+
         String json = """
                 {
                   "borrowerName": "Patrik Hading",
@@ -165,45 +178,129 @@ class AdminLoanRestControllerTest {
                                 .content(json)
                 )
                 .andExpect(
-                        status().isBadRequest()
-                )
-                .andExpect(
-                        jsonPath("$.status")
-                                .value(400)
-                )
-                .andExpect(
-                        jsonPath("$.error")
-                                .value(
-                                        "Bad Request"
-                                )
-                )
-                .andExpect(
-                        jsonPath("$.code")
-                                .value(
-                                        "VALIDATION_FAILED"
-                                )
-                )
-                .andExpect(
-                        jsonPath("$.message")
-                                .value(
-                                        "Kontrollera de markerade fälten."
-                                )
+                        status().isCreated()
                 )
                 .andExpect(
                         jsonPath(
-                                "$.fieldErrors.expectedReturnDate"
+                                "$.expectedReturnDate"
                         ).value(
-                                "Förväntat återlämningsdatum "
-                                        + "måste anges."
+                                nullValue()
                         )
+                )
+                .andExpect(
+                        jsonPath("$.overdue")
+                                .value(false)
+                )
+                .andExpect(
+                        jsonPath(
+                                "$.returnedLate"
+                        ).value(false)
                 );
 
         verify(
-                loanService,
-                never()
+                loanService
         ).registerLoan(
-                any(),
-                any()
+                eq("HELMET-001"),
+                argThat(
+                        dto ->
+                                dto.getExpectedReturnDate()
+                                        == null
+                )
+        );
+    }
+
+    @Test
+    void registerLoanShouldAcceptExplicitNullDate()
+            throws Exception {
+        Loan loan =
+                registeredLoan(null);
+
+        when(
+                loanService.registerLoan(
+                        eq("HELMET-001"),
+                        any()
+                )
+        ).thenReturn(loan);
+
+        String json = """
+                {
+                  "borrowerName": "Patrik Hading",
+                  "email": "patrik@example.com",
+                  "phoneNumber": "+46701234567",
+                  "expectedReturnDate": null
+                }
+                """;
+
+        mockMvc.perform(
+                        post(
+                                "/api/admin/loans/HELMET-001"
+                        )
+                                .contentType(
+                                        APPLICATION_JSON
+                                )
+                                .content(json)
+                )
+                .andExpect(
+                        status().isCreated()
+                )
+                .andExpect(
+                        jsonPath(
+                                "$.expectedReturnDate"
+                        ).value(
+                                nullValue()
+                        )
+                );
+    }
+
+    @Test
+    void registerLoanShouldAcceptAliasName()
+            throws Exception {
+        Loan loan =
+                registeredLoan(null);
+
+        when(
+                loanService.registerLoan(
+                        eq("HELMET-001"),
+                        any()
+                )
+        ).thenReturn(loan);
+
+        String json = """
+                {
+                  "borrowerName": "Patrik Hading",
+                  "email": "patrik@example.com",
+                  "phoneNumber": "+46701234567",
+                  "aliasName": "Patrik",
+                  "expectedReturnDate": null
+                }
+                """;
+
+        mockMvc.perform(
+                        post(
+                                "/api/admin/loans/HELMET-001"
+                        )
+                                .contentType(
+                                        APPLICATION_JSON
+                                )
+                                .content(json)
+                )
+                .andExpect(
+                        status().isCreated()
+                );
+
+        verify(
+                loanService
+        ).registerLoan(
+                eq("HELMET-001"),
+                argThat(
+                        dto ->
+                                "Patrik".equals(
+                                        dto.getAliasName()
+                                )
+                                        && dto
+                                        .getExpectedReturnDate()
+                                        == null
+                )
         );
     }
 

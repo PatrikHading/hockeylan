@@ -183,6 +183,25 @@ describe("ThankYou", () => {
         ).toBeInTheDocument();
     });
 
+    test("shows a dash when expected return date is missing", () => {
+        renderWithState({
+            ...successState,
+            expectedReturnDate:
+                null,
+        });
+
+        const expectedReturnDateLabel =
+            screen.getByText(
+                "Förväntad återlämning"
+            );
+
+        expect(
+            expectedReturnDateLabel
+                .closest("div")
+                .querySelector("dd")
+        ).toHaveTextContent("–");
+    });
+
     test("supports keyboard navigation after registration", async () => {
         const user =
             userEvent.setup();
@@ -246,7 +265,9 @@ describe("ThankYou", () => {
                 }
             );
 
-        expect(link).toHaveAttribute(
+        expect(
+            link
+        ).toHaveAttribute(
             "href",
             "/admin"
         );

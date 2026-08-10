@@ -56,7 +56,8 @@ class HockeylanApplicationTests {
 					"7",
 					"8",
 					"9",
-					"10"
+					"10",
+					"11"
 			);
 
 	private static final Set<String>
@@ -64,7 +65,8 @@ class HockeylanApplicationTests {
 			Set.of(
 					"equipment",
 					"loans",
-					"admins"
+					"admins",
+					"borrower_aliases"
 			);
 
 	private static final Set<String>
@@ -89,7 +91,12 @@ class HockeylanApplicationTests {
 					"chk_equipment_brand_not_blank",
 					"chk_equipment_model_not_blank",
 					"chk_equipment_storage_location_not_blank",
-					"chk_loans_expected_return_date_valid"
+					"chk_loans_expected_return_date_valid",
+					"borrower_aliases_pkey",
+					"chk_borrower_aliases_alias_name_not_blank",
+					"chk_borrower_aliases_borrower_name_not_blank",
+					"chk_borrower_aliases_email_not_blank",
+					"chk_borrower_aliases_phone_number_not_blank"
 			);
 
 	private static final Set<String>
@@ -109,7 +116,8 @@ class HockeylanApplicationTests {
 					"idx_equipment_condition",
 					"idx_equipment_age_category",
 					"idx_equipment_active_available_type",
-					"idx_loans_active_expected_return_date"
+					"idx_loans_active_expected_return_date",
+					"ux_borrower_aliases_alias_name_lower"
 			);
 
 	@Container
@@ -182,7 +190,12 @@ class HockeylanApplicationTests {
 
 	@BeforeEach
 	void cleanApplicationData() {
+		jdbcTemplate.update(
+				"DELETE FROM borrower_aliases"
+		);
+
 		loanRepository.deleteAllInBatch();
+
 		equipmentRepository
 				.deleteAllInBatch();
 	}
@@ -320,7 +333,8 @@ class HockeylanApplicationTests {
                                   AND table_name IN (
                                       'equipment',
                                       'loans',
-                                      'admins'
+                                      'admins',
+                                      'borrower_aliases'
                                   )
                                 """,
 								String.class
@@ -500,7 +514,137 @@ class HockeylanApplicationTests {
 
 		assertThat(
 				column.get("is_nullable")
+		).isEqualTo("YES");
+	}
+
+	@Test
+	void flywayCreatesExpectedBorrowerAliasColumns() {
+		List<ColumnMetadata> columns =
+				jdbcTemplate.query(
+						"""
+                        SELECT
+                            column_name,
+                            data_type,
+                            character_maximum_length,
+                            is_nullable,
+                            column_default
+                        FROM information_schema.columns
+                        WHERE table_schema = 'public'
+                          AND table_name = 'borrower_aliases'
+                          AND column_name IN (
+                              'id',
+                              'alias_name',
+                              'borrower_name',
+                              'email',
+                              'phone_number',
+                              'version',
+                              'created_date',
+                              'updated_date'
+                          )
+                        """,
+						(
+								resultSet,
+								rowNumber
+						) ->
+								new ColumnMetadata(
+										resultSet.getString(
+												"column_name"
+										),
+										resultSet.getString(
+												"data_type"
+										),
+										resultSet.getObject(
+												"character_maximum_length",
+												Integer.class
+										),
+										resultSet.getString(
+												"is_nullable"
+										),
+										resultSet.getString(
+												"column_default"
+										)
+								)
+				);
+
+		Map<String, ColumnMetadata>
+				columnsByName =
+				columns.stream()
+						.collect(
+								Collectors.toMap(
+										ColumnMetadata::name,
+										Function.identity()
+								)
+						);
+
+		assertThat(
+				columnsByName.keySet()
+		).containsExactlyInAnyOrder(
+				"id",
+				"alias_name",
+				"borrower_name",
+				"email",
+				"phone_number",
+				"version",
+				"created_date",
+				"updated_date"
+		);
+
+		assertTextColumn(
+				columnsByName,
+				"alias_name",
+				100,
+				false
+		);
+
+		assertTextColumn(
+				columnsByName,
+				"borrower_name",
+				100,
+				false
+		);
+
+		assertTextColumn(
+				columnsByName,
+				"email",
+				150,
+				false
+		);
+
+		assertTextColumn(
+				columnsByName,
+				"phone_number",
+				30,
+				false
+		);
+
+		assertThat(
+				columnsByName.get("id")
+						.dataType()
+		).isEqualTo("bigint");
+
+		assertThat(
+				columnsByName.get("version")
+						.dataType()
+		).isEqualTo("bigint");
+
+		assertThat(
+				columnsByName.get("version")
+						.nullable()
 		).isEqualTo("NO");
+
+		assertThat(
+				columnsByName.get("created_date")
+						.dataType()
+		).isEqualTo(
+				"timestamp without time zone"
+		);
+
+		assertThat(
+				columnsByName.get("updated_date")
+						.dataType()
+		).isEqualTo(
+				"timestamp without time zone"
+		);
 	}
 
 	@Test
@@ -515,7 +659,8 @@ class HockeylanApplicationTests {
                                   AND table_name IN (
                                       'equipment',
                                       'loans',
-                                      'admins'
+                                      'admins',
+                                      'borrower_aliases'
                                   )
                                 """,
 								String.class
@@ -540,7 +685,8 @@ class HockeylanApplicationTests {
                                   AND tablename IN (
                                       'equipment',
                                       'loans',
-                                      'admins'
+                                      'admins',
+                                      'borrower_aliases'
                                   )
                                 """,
 								String.class
@@ -575,6 +721,11 @@ class HockeylanApplicationTests {
 						"idx_loans_active_expected_return_date"
 				);
 
+		String borrowerAliasIndex =
+				findIndexDefinition(
+						"ux_borrower_aliases_alias_name_lower"
+				);
+
 		assertThat(
 				normalizeSql(serialIndex)
 		)
@@ -590,6 +741,16 @@ class HockeylanApplicationTests {
 				.contains("(equipment_id)")
 				.contains(
 						"where (returned = false)"
+				);
+
+		assertThat(
+				normalizeSql(
+						borrowerAliasIndex
+				)
+		)
+				.contains("unique index")
+				.contains(
+						"lower((alias_name)::text)"
 				);
 
 		assertThat(
@@ -970,6 +1131,70 @@ class HockeylanApplicationTests {
 				.isEqualTo(1);
 	}
 
+	@Test
+	void expectedReturnDateMayBeNull() {
+		Long equipmentId =
+				insertEquipment(
+						"NO-DATE-001"
+				);
+
+		int inserted =
+				jdbcTemplate.update(
+						"""
+                        INSERT INTO loans (
+                            borrower_name,
+                            email,
+                            loan_date,
+                            expected_return_date,
+                            phone_number,
+                            returned,
+                            equipment_id,
+                            created_date,
+                            updated_date,
+                            version
+                        )
+                        VALUES (
+                            'No date borrower',
+                            'nodate@example.com',
+                            CURRENT_TIMESTAMP,
+                            NULL,
+                            '0700000000',
+                            false,
+                            ?,
+                            CURRENT_TIMESTAMP,
+                            CURRENT_TIMESTAMP,
+                            0
+                        )
+                        """,
+						equipmentId
+				);
+
+		assertThat(inserted)
+				.isEqualTo(1);
+	}
+
+	@Test
+	void borrowerAliasUniqueIndexIsCaseInsensitive() {
+		insertBorrowerAlias(
+				"Patrik",
+				"Patrik Hading",
+				"patrik@example.com",
+				"0701234567"
+		);
+
+		assertThatThrownBy(
+				() -> insertBorrowerAlias(
+						"patrik",
+						"Another Person",
+						"another@example.com",
+						"0707654321"
+				)
+		).isInstanceOf(
+				DataIntegrityViolationException
+						.class
+		);
+	}
+
 	private Long insertEquipment(
 			String serialNumber
 	) {
@@ -1042,6 +1267,40 @@ class HockeylanApplicationTests {
 				borrowerName,
 				email,
 				equipmentId
+		);
+	}
+
+	private void insertBorrowerAlias(
+			String aliasName,
+			String borrowerName,
+			String email,
+			String phoneNumber
+	) {
+		jdbcTemplate.update(
+				"""
+                INSERT INTO borrower_aliases (
+                    alias_name,
+                    borrower_name,
+                    email,
+                    phone_number,
+                    version,
+                    created_date,
+                    updated_date
+                )
+                VALUES (
+                    ?,
+                    ?,
+                    ?,
+                    ?,
+                    0,
+                    CURRENT_TIMESTAMP,
+                    CURRENT_TIMESTAMP
+                )
+                """,
+				aliasName,
+				borrowerName,
+				email,
+				phoneNumber
 		);
 	}
 

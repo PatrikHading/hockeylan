@@ -61,6 +61,10 @@ class ActiveLoanServiceTest {
     private EquipmentRepository
             equipmentRepository;
 
+    @Mock
+    private BorrowerAliasService
+            borrowerAliasService;
+
     private LoanService loanService;
 
     @BeforeEach
@@ -68,6 +72,7 @@ class ActiveLoanServiceTest {
         loanService = new LoanService(
                 loanRepository,
                 equipmentRepository,
+                borrowerAliasService,
                 FIXED_CLOCK
         );
     }

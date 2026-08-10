@@ -95,8 +95,7 @@ public class Loan extends BaseEntity {
     private LocalDateTime loanDate;
 
     @Column(
-            name = "expected_return_date",
-            nullable = false
+            name = "expected_return_date"
     )
     private LocalDate expectedReturnDate;
 
@@ -199,9 +198,7 @@ public class Loan extends BaseEntity {
 
     private void validateExpectedReturnDate() {
         if (expectedReturnDate == null) {
-            throw new IllegalStateException(
-                    "Expected return date must not be null."
-            );
+            return;
         }
 
         LocalDate loanDay =

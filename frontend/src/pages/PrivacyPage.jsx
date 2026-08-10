@@ -14,17 +14,13 @@ function PrivacyPage() {
                         id="privacy-heading"
                         className="mt-2 text-3xl font-black tracking-tight text-blue-950"
                     >
-                        Så behandlar HockeyLån
-                        personuppgifter
+                        Så behandlar HockeyLån personuppgifter
                     </h1>
 
                     <p className="mt-4 leading-7 text-slate-700">
-                        Den här informationen beskriver
-                        den tekniska
-                        personuppgiftshanteringen i
-                        HockeyLån. Den ersätter inte
-                        verksamhetens egen juridiska
-                        bedömning.
+                        Den här informationen beskriver den tekniska
+                        personuppgiftshanteringen i HockeyLån. Den ersätter inte
+                        verksamhetens egen juridiska bedömning.
                     </p>
                 </header>
 
@@ -38,38 +34,32 @@ function PrivacyPage() {
                         </h2>
 
                         <p className="mt-3 leading-7">
-                            När ett lån registreras
-                            behandlar HockeyLån följande
-                            uppgifter:
+                            När ett lån registreras behandlar HockeyLån följande uppgifter:
                         </p>
 
                         <ul className="mt-3 list-disc space-y-2 pl-6">
+                            <li>låntagarens namn,</li>
+
+                            <li>e-postadress,</li>
+
+                            <li>telefonnummer,</li>
+
                             <li>
-                                låntagarens namn,
+                                uppgifter om den utlånade utrustningen och dess serienummer,
                             </li>
 
                             <li>
-                                e-postadress,
-                            </li>
-
-                            <li>
-                                telefonnummer,
-                            </li>
-
-                            <li>
-                                uppgifter om den
-                                utlånade utrustningen och
-                                dess serienummer,
-                            </li>
-
-                            <li>
-                                lånedatum, planerat
-                                återlämningsdatum och
-                                uppgift om när
-                                utrustningen
-                                återlämnades.
+                                lånedatum, eventuellt förväntat återlämningsdatum och uppgift om
+                                när utrustningen återlämnades.
                             </li>
                         </ul>
+
+                        <p className="mt-3 leading-7">
+                            Om administratören väljer att spara låntagaren som ett Alias
+                            lagras även det valda Aliasnamnet tillsammans med en återanvändbar
+                            kopia av låntagarens namn, e-postadress och telefonnummer. Ett
+                            Alias behöver inte väljas eller sparas för att registrera ett lån.
+                        </p>
                     </section>
 
                     <section aria-labelledby="processing-purpose">
@@ -81,21 +71,22 @@ function PrivacyPage() {
                         </h2>
 
                         <p className="mt-3 leading-7">
-                            Uppgifterna används för att
-                            administrera utlåning,
-                            identifiera vem som har lånat
-                            en viss utrustning, kontakta
-                            låntagaren om lånet och följa
-                            upp återlämningen.
+                            Uppgifterna används för att administrera utlåning, identifiera vem
+                            som har lånat en viss utrustning, kontakta låntagaren om lånet och
+                            följa upp återlämningen.
                         </p>
 
                         <p className="mt-3 leading-7">
-                            Uppgifterna ska inte användas
-                            för marknadsföring eller andra
-                            oförenliga ändamål utan att
-                            verksamheten först fattar ett
-                            särskilt beslut och
-                            informerar de registrerade.
+                            Sparade Alias används för att behöriga administratörer snabbare
+                            ska kunna fylla i kontaktuppgifter vid framtida utlåningar. Om
+                            uppgifterna ändras efter att ett Alias har valts gäller ändringen
+                            endast det aktuella lånet och ändrar inte det sparade Aliaset.
+                        </p>
+
+                        <p className="mt-3 leading-7">
+                            Uppgifterna ska inte användas för marknadsföring eller andra
+                            oförenliga ändamål utan att verksamheten först fattar ett särskilt
+                            beslut och informerar de registrerade.
                         </p>
                     </section>
 
@@ -108,28 +99,16 @@ function PrivacyPage() {
                         </h2>
 
                         <p className="mt-3 leading-7">
-                            Låneuppgifterna är avsedda
-                            att vara tillgängliga endast
-                            för behöriga
-                            administratörer.
-                            Applikationen använder
-                            autentisering,
-                            åtkomstkontroll, CSRF-skydd,
-                            hastighetsbegränsning och
-                            säkerhetsloggning för att
-                            minska risken för obehörig
-                            åtkomst.
+                            Låne- och Aliasuppgifterna är avsedda att vara tillgängliga endast
+                            för behöriga administratörer. Applikationen använder
+                            autentisering, åtkomstkontroll, CSRF-skydd, hastighetsbegränsning
+                            och säkerhetsloggning för att minska risken för obehörig åtkomst.
                         </p>
 
                         <p className="mt-3 leading-7">
-                            Namn, e-postadress och
-                            telefonnummer ska inte
-                            skrivas till applikationens
-                            loggar. Tekniska uppgifter
-                            utan avsiktligt
-                            personinnehåll kan loggas för
-                            felsökning och
-                            säkerhetsuppföljning.
+                            Namn, e-postadress, telefonnummer och Aliasnamn ska inte skrivas
+                            till applikationens loggar. Tekniska uppgifter utan avsiktligt
+                            personinnehåll kan loggas för felsökning och säkerhetsuppföljning.
                         </p>
                     </section>
 
@@ -142,18 +121,13 @@ function PrivacyPage() {
                         </h2>
 
                         <p className="mt-3 leading-7">
-                            HockeyLån använder tekniskt
-                            nödvändiga cookies för
-                            administratörens
-                            inloggningssession och för
-                            att skydda formulär och
-                            API-anrop mot CSRF-attacker.
+                            HockeyLån använder tekniskt nödvändiga cookies för
+                            administratörens inloggningssession och för att skydda formulär
+                            och API-anrop mot CSRF-attacker.
                         </p>
 
                         <p className="mt-3 leading-7">
-                            Applikationen använder inte
-                            cookies för reklam,
-                            profilering eller
+                            Applikationen använder inte cookies för reklam, profilering eller
                             besöksanalys.
                         </p>
                     </section>
@@ -167,14 +141,10 @@ function PrivacyPage() {
                         </h2>
 
                         <p className="mt-3 leading-7">
-                            Någon lagringstid anges inte
-                            här eftersom verksamheten
-                            ännu måste besluta hur länge
-                            aktiva och avslutade
-                            låneuppgifter behöver sparas.
-                            Uppgifter ska inte sparas
-                            längre än vad som behövs för
-                            det beslutade ändamålet.
+                            Någon lagringstid anges inte här eftersom verksamheten ännu måste
+                            besluta hur länge aktiva och avslutade låneuppgifter samt sparade
+                            Alias behöver behållas. Uppgifter ska inte sparas längre än vad
+                            som behövs för det beslutade ändamålet.
                         </p>
 
                         <div
@@ -183,17 +153,13 @@ function PrivacyPage() {
                             aria-label="Verksamhetsbeslut krävs"
                         >
                             <p className="font-bold">
-                                Verksamhetsbeslut krävs
-                                före produktion
+                                Verksamhetsbeslut krävs före produktion
                             </p>
 
                             <p className="mt-2 leading-7">
-                                Verksamheten måste
-                                besluta och dokumentera
-                                lagringstid,
-                                raderingsrutin och
-                                eventuell hantering av
-                                säkerhetskopior.
+                                Verksamheten måste besluta och dokumentera lagringstid,
+                                raderingsrutin för både låneuppgifter och Alias, samt eventuell
+                                hantering av säkerhetskopior.
                             </p>
                         </div>
                     </section>
@@ -207,14 +173,10 @@ function PrivacyPage() {
                         </h2>
 
                         <p className="mt-3 leading-7">
-                            Verksamheten måste före
-                            produktionssättning ange vem
-                            som är
-                            personuppgiftsansvarig,
-                            tillämplig rättslig grund och
-                            en kontaktväg för frågor,
-                            rättelse, radering och andra
-                            registrerades rättigheter.
+                            Verksamheten måste före produktionssättning ange vem som är
+                            personuppgiftsansvarig, tillämplig rättslig grund och en
+                            kontaktväg för frågor, rättelse, radering och andra registrerades
+                            rättigheter.
                         </p>
 
                         <div
@@ -223,41 +185,22 @@ function PrivacyPage() {
                             aria-label="Informationen måste kompletteras"
                         >
                             <p className="font-bold">
-                                Informationen måste
-                                kompletteras
+                                Informationen måste kompletteras
                             </p>
 
                             <ul className="mt-2 list-disc space-y-2 pl-6">
-                                <li>
-                                    personuppgiftsansvarig
-                                    verksamhet,
-                                </li>
+                                <li>personuppgiftsansvarig verksamhet,</li>
+
+                                <li>kontaktuppgifter,</li>
+
+                                <li>rättslig grund för behandlingen,</li>
+
+                                <li>beslutade lagrings- och raderingsperioder,</li>
+
+                                <li>eventuella personuppgiftsbiträden och mottagare,</li>
 
                                 <li>
-                                    kontaktuppgifter,
-                                </li>
-
-                                <li>
-                                    rättslig grund för
-                                    behandlingen,
-                                </li>
-
-                                <li>
-                                    beslutade lagrings-
-                                    och
-                                    raderingsperioder,
-                                </li>
-
-                                <li>
-                                    eventuella
-                                    personuppgiftsbiträden
-                                    och mottagare,
-                                </li>
-
-                                <li>
-                                    rutiner för att
-                                    hantera registrerades
-                                    rättigheter och
+                                    rutiner för att hantera registrerades rättigheter och
                                     personuppgiftsincidenter.
                                 </li>
                             </ul>

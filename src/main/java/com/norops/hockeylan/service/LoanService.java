@@ -56,6 +56,9 @@ public class LoanService {
     private final EquipmentRepository
             equipmentRepository;
 
+    private final BorrowerAliasService
+            borrowerAliasService;
+
     private final Clock applicationClock;
 
     public Loan registerLoan(
@@ -104,21 +107,45 @@ public class LoanService {
                 equipment
         );
 
-        Loan loan = new Loan(
-                equipment,
+        String sanitizedBorrowerName =
                 InputSanitizer.cleanText(
                         loanFormDTO
                                 .getBorrowerName()
-                ),
+                );
+
+        String sanitizedEmail =
                 InputSanitizer.cleanEmail(
                         loanFormDTO
                                 .getEmail()
-                ),
+                );
+
+        String sanitizedPhoneNumber =
                 InputSanitizer
                         .cleanPhoneNumber(
                                 loanFormDTO
                                         .getPhoneNumber()
-                        ),
+                        );
+
+        if (
+                loanFormDTO
+                        .getAliasName()
+                        != null
+        ) {
+            borrowerAliasService
+                    .createAlias(
+                            loanFormDTO
+                                    .getAliasName(),
+                            sanitizedBorrowerName,
+                            sanitizedEmail,
+                            sanitizedPhoneNumber
+                    );
+        }
+
+        Loan loan = new Loan(
+                equipment,
+                sanitizedBorrowerName,
+                sanitizedEmail,
+                sanitizedPhoneNumber,
                 loanFormDTO
                         .getExpectedReturnDate()
         );
@@ -615,22 +642,16 @@ public class LoanService {
                     "Telefonnummer måste anges."
             );
         }
-
-        if (
-                loanFormDTO
-                        .getExpectedReturnDate()
-                        == null
-        ) {
-            throw new BusinessRuleException(
-                    "Förväntat återlämningsdatum måste anges."
-            );
-        }
     }
 
     private void validateExpectedReturnDate(
             LocalDate expectedReturnDate,
             LocalDate registrationDate
     ) {
+        if (expectedReturnDate == null) {
+            return;
+        }
+
         if (
                 expectedReturnDate.isBefore(
                         registrationDate

@@ -3,7 +3,6 @@ package com.norops.hockeylan.dto;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
@@ -64,10 +63,19 @@ public class LoanFormDTO {
     )
     private String phoneNumber;
 
-    @NotNull(
+    @Size(
+            min = 2,
+            max = 100,
             message =
-                    "Expected return date is required"
+                    "Alias name must be between 2 and 100 characters"
     )
+    @Pattern(
+            regexp = ".*\\S.*",
+            message =
+                    "Alias name must not be blank"
+    )
+    private String aliasName;
+
     @FutureOrPresent(
             message =
                     "Expected return date must be today or a future date"

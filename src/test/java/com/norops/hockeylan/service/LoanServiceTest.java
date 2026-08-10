@@ -2,6 +2,7 @@ package com.norops.hockeylan.service;
 
 import com.norops.hockeylan.dto.LoanFormDTO;
 import com.norops.hockeylan.exception.BusinessRuleException;
+import com.norops.hockeylan.exception.DuplicateResourceException;
 import com.norops.hockeylan.exception.ResourceNotFoundException;
 import com.norops.hockeylan.model.Equipment;
 import com.norops.hockeylan.model.EquipmentType;
@@ -23,6 +24,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -54,6 +56,10 @@ class LoanServiceTest {
     private EquipmentRepository
             equipmentRepository;
 
+    @Mock
+    private BorrowerAliasService
+            borrowerAliasService;
+
     private LoanService loanService;
 
     @BeforeEach
@@ -61,6 +67,7 @@ class LoanServiceTest {
         loanService = new LoanService(
                 loanRepository,
                 equipmentRepository,
+                borrowerAliasService,
                 FIXED_CLOCK
         );
     }
@@ -140,6 +147,188 @@ class LoanServiceTest {
 
         verify(equipmentRepository)
                 .save(equipment);
+
+        verify(
+                borrowerAliasService,
+                never()
+        ).createAlias(
+                any(),
+                any(),
+                any(),
+                any()
+        );
+    }
+
+    @Test
+    void registerLoanShouldAllowMissingExpectedReturnDate() {
+        Equipment equipment =
+                activeEquipment(
+                        EquipmentType.HELMET,
+                        "HELMET-NO-DATE"
+                );
+
+        prepareSuccessfulSave(
+                equipment
+        );
+
+        Loan result =
+                loanService.registerLoan(
+                        "HELMET-NO-DATE",
+                        validLoanForm(null)
+                );
+
+        assertNull(
+                result.getExpectedReturnDate()
+        );
+
+        assertFalse(
+                result.isReturned()
+        );
+
+        assertFalse(
+                equipment.isAvailable()
+        );
+
+        verify(loanRepository)
+                .save(any(Loan.class));
+
+        verify(equipmentRepository)
+                .save(equipment);
+    }
+
+    @Test
+    void registerLoanShouldCreateAliasWithSameNormalizedContactDetails() {
+        Equipment equipment =
+                activeEquipment(
+                        EquipmentType.HELMET,
+                        "HELMET-ALIAS"
+                );
+
+        prepareSuccessfulSave(
+                equipment
+        );
+
+        LoanFormDTO dto =
+                validLoanForm(null);
+
+        dto.setAliasName(
+                "Patrik"
+        );
+
+        dto.setBorrowerName(
+                "  Patrik   Hading  "
+        );
+
+        dto.setEmail(
+                "  PATRIK@EXAMPLE.COM  "
+        );
+
+        dto.setPhoneNumber(
+                "  +46701234567  "
+        );
+
+        Loan result =
+                loanService.registerLoan(
+                        "HELMET-ALIAS",
+                        dto
+                );
+
+        verify(
+                borrowerAliasService
+        ).createAlias(
+                "Patrik",
+                "Patrik Hading",
+                "patrik@example.com",
+                "+46701234567"
+        );
+
+        assertEquals(
+                "Patrik Hading",
+                result.getBorrowerName()
+        );
+
+        assertEquals(
+                "patrik@example.com",
+                result.getEmail()
+        );
+
+        assertEquals(
+                "+46701234567",
+                result.getPhoneNumber()
+        );
+
+        assertNull(
+                result.getExpectedReturnDate()
+        );
+    }
+
+    @Test
+    void registerLoanShouldNotSaveLoanWhenAliasCreationFails() {
+        Equipment equipment =
+                activeEquipment(
+                        EquipmentType.HELMET,
+                        "HELMET-DUPLICATE-ALIAS"
+                );
+
+        when(
+                equipmentRepository
+                        .findBySerialNumberIgnoreCaseForUpdate(
+                                "HELMET-DUPLICATE-ALIAS"
+                        )
+        ).thenReturn(
+                Optional.of(equipment)
+        );
+
+        when(
+                loanRepository
+                        .existsByEquipmentAndReturnedFalse(
+                                equipment
+                        )
+        ).thenReturn(false);
+
+        LoanFormDTO dto =
+                validLoanForm(null);
+
+        dto.setAliasName(
+                "Patrik"
+        );
+
+        when(
+                borrowerAliasService
+                        .createAlias(
+                                "Patrik",
+                                "Patrik Hading",
+                                "patrik@example.com",
+                                "+46701234567"
+                        )
+        ).thenThrow(
+                new DuplicateResourceException(
+                        "Det finns redan ett Alias med det namnet."
+                )
+        );
+
+        assertThrows(
+                DuplicateResourceException.class,
+                () ->
+                        loanService.registerLoan(
+                                "HELMET-DUPLICATE-ALIAS",
+                                dto
+                        )
+        );
+
+        assertTrue(
+                equipment.isAvailable()
+        );
+
+        verify(
+                loanRepository,
+                never()
+        ).save(any(Loan.class));
+
+        verify(
+                equipmentRepository,
+                never()
+        ).save(equipment);
     }
 
     @Test
@@ -248,45 +437,6 @@ class LoanServiceTest {
                 loanRepository,
                 never()
         ).save(any());
-    }
-
-    @Test
-    void registerLoanShouldRejectMissingExpectedDate() {
-        LoanFormDTO dto =
-                validLoanForm(
-                        LocalDate.of(
-                                2027,
-                                1,
-                                1
-                        )
-                );
-
-        dto.setExpectedReturnDate(
-                null
-        );
-
-        BusinessRuleException exception =
-                assertThrows(
-                        BusinessRuleException.class,
-                        () ->
-                                loanService
-                                        .registerLoan(
-                                                "HELMET-001",
-                                                dto
-                                        )
-                );
-
-        assertEquals(
-                "Förväntat återlämningsdatum måste anges.",
-                exception.getMessage()
-        );
-
-        verify(
-                equipmentRepository,
-                never()
-        ).findBySerialNumberIgnoreCaseForUpdate(
-                any()
-        );
     }
 
     @Test
