@@ -44,19 +44,29 @@ describe("NotFoundPage", () => {
 
         expect(
             screen.getByRole("heading", {
-                name: "Sidan kunde inte hittas",
+                name: "Pucken missade målet",
             })
         ).toBeInTheDocument();
 
         expect(
             screen.getByText(
-                /adressen kan vara felaktig/i
+                /sidan du letar efter finns inte/i
             )
         ).toBeInTheDocument();
 
         expect(
             screen.getByRole("navigation", {
                 name: /alternativ efter saknad sida/i,
+            })
+        ).toBeInTheDocument();
+    });
+
+    test("describes the rink animation for assistive technology", () => {
+        renderNotFound();
+
+        expect(
+            screen.getByRole("img", {
+                name: /en hockeypuck glider över isen och missar målet/i,
             })
         ).toBeInTheDocument();
     });
