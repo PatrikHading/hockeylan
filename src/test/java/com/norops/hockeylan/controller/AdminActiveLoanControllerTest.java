@@ -17,8 +17,11 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.mockito.Mockito.when;
@@ -40,10 +43,19 @@ class AdminActiveLoanControllerTest {
 
     @BeforeEach
     void setUp() {
+        Clock fixedClock =
+                Clock.fixed(
+                        Instant.parse(
+                                "2026-08-01T12:00:00Z"
+                        ),
+                        ZoneOffset.UTC
+                );
+
         AdminRestController controller =
                 new AdminRestController(
                         equipmentService,
-                        loanService
+                        loanService,
+                        fixedClock
                 );
 
         ReflectionTestUtils.setField(

@@ -19,6 +19,10 @@ import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 import java.util.List;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -44,10 +48,19 @@ class AdminRestControllerTest {
 
     @BeforeEach
     void setUp() {
+        Clock fixedClock =
+                Clock.fixed(
+                        Instant.parse(
+                                "2026-08-01T12:00:00Z"
+                        ),
+                        ZoneOffset.UTC
+                );
+
         AdminRestController controller =
                 new AdminRestController(
                         equipmentService,
-                        loanService
+                        loanService,
+                        fixedClock
                 );
 
         ReflectionTestUtils.setField(

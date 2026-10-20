@@ -38,6 +38,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriUtils;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -54,6 +55,8 @@ public class AdminRestController {
             equipmentService;
 
     private final LoanService loanService;
+
+    private final Clock clock;
 
     @Value("${app.qr.base-url}")
     private String qrBaseUrl;
@@ -291,6 +294,9 @@ public class AdminRestController {
             @Max(100)
             int size
     ) {
+        LocalDate currentDate =
+                LocalDate.now(clock);
+
         return ResponseEntity.ok(
                 PagedResponseDTO.from(
                         loanService
@@ -304,8 +310,12 @@ public class AdminRestController {
                                         page,
                                         size
                                 ),
-                        LoanMapper
-                                ::toAdminResponseDTO
+                        loan ->
+                                LoanMapper
+                                        .toAdminResponseDTO(
+                                                loan,
+                                                currentDate
+                                        )
                 )
         );
     }
@@ -324,7 +334,8 @@ public class AdminRestController {
         return ResponseEntity.ok(
                 LoanMapper
                         .toAdminResponseDTO(
-                                returnedLoan
+                                returnedLoan,
+                                LocalDate.now(clock)
                         )
         );
     }
