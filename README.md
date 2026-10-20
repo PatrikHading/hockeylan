@@ -1272,4 +1272,9 @@ The internal container ports remain unchanged.
 
 ## License
 
-No project licence is currently declared in `pom.xml`, and no standalone licence file is present. Add an explicit licence before distributing the project publicly.
+Copyright © 2026 Patrik Hading. All rights reserved.
+
+The project's original source code may not be used, copied, modified,
+or distributed without permission from the copyright holder.
+
+Third-party libraries are subject to their respective licenses.
